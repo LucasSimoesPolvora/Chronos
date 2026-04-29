@@ -3,7 +3,89 @@ using System.Security.Cryptography;
 public class FileService
 {
     public List<TrackedFile> trackedFiles = [];
-    
+    private Index index = new();
+    private readonly string IndexPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "index");
+    private readonly string ObjectsPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "objects");
+
+    public FileService()
+    {
+        LoadIndex();
+    }
+
+    private string CalculateFileHash(string filePath)
+    {
+        using (var sha256 = SHA256.Create())
+        using (var stream = File.OpenRead(filePath))
+        {
+            byte[] hashBytes = sha256.ComputeHash(stream);
+            return Convert.ToHexString(hashBytes).ToLower();
+        }
+    }
+
+    private string SaveBlob(string filePath, string blobHash)
+    {
+        string blobPath = Path.Combine(ObjectsPath, blobHash);
+        
+        if (File.Exists(blobPath))
+        {
+            return blobPath;
+        }
+
+        if(!Directory.Exists(ObjectsPath)) Directory.CreateDirectory(ObjectsPath);
+
+        File.Copy(filePath, blobPath, overwrite: false);
+        return blobPath;
+    }
+
+    private void LoadIndex()
+    {
+        if (File.Exists(IndexPath))
+        {
+            try
+            {
+                byte[] data = File.ReadAllBytes(IndexPath);
+                index = Index.FromBinary(data);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading index: {ex.Message}");
+                index = new Index();
+            }
+        }
+    }
+
+    private void SaveIndex()
+    {
+        try
+        {
+            Directory.CreateDirectory(ObjectsPath);
+            byte[] data = index.ToBinary();
+            File.WriteAllBytes(IndexPath, data);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving index: {ex.Message}");
+        }
+    }
+
+    public string SaveFileStatus(string filePath)
+    {
+        if (!File.Exists(filePath))
+        {
+            throw new FileNotFoundException($"File not found: {filePath}");
+        }
+
+        string blobHash = CalculateFileHash(filePath);
+
+        SaveBlob(filePath, blobHash);
+
+        string projectRoot = Directory.GetCurrentDirectory();
+        string relativePath = Path.GetRelativePath(projectRoot, filePath);
+
+        index.AddOrUpdateEntry(relativePath, blobHash);
+
+        return blobHash;
+    }
 
     public void AddToStaging(string pattern)
     {
@@ -12,13 +94,6 @@ public class FileService
         projectService.GetFiles(Directory.GetCurrentDirectory(), this);
         
         List<TrackedFile> filesToStage = [];
-
-        Console.WriteLine("Current tracked files:");
-
-        foreach(TrackedFile file in trackedFiles)
-        {
-            Console.WriteLine($"Tracked file: {file.File.FullName} - {file.FileType}");
-        }
 
         if (pattern == ".")
         {
@@ -61,15 +136,17 @@ public class FileService
             {
                 try
                 {
-                    // Update tracked file status
-                    UpdateTrackedFiles(file.File.FullName, FileTypeEnum.staged);
+                    string blobHash = SaveFileStatus(file.File.FullName);
+                    
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Error staging file {file.File.Name}: {ex.Message}");
                 }
             }
-            
+
+            SaveIndex();   
+
             Console.WriteLine($"{filesToStage.Count} file(s) added to staging.");
         }
         else
@@ -100,10 +177,5 @@ public class FileService
         }
 
         return false;
-    }
-
-    public void UpdateTrackedFiles(string path, FileTypeEnum fileType)
-    {
-        
     }
 }
