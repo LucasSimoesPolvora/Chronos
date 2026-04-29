@@ -11,7 +11,9 @@ public class ProjectService
         }
         DirectoryInfo dir = Directory.CreateDirectory(projectPath);
         dir.Attributes |= FileAttributes.Hidden;
-        Console.WriteLine("Project initialized successfully.");
 
+        dir.CreateSubdirectory("objects");
+        Console.WriteLine("Project initialized successfully.");   
+    }
     }
 }
