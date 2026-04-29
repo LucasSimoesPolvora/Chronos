@@ -1,4 +1,4 @@
-﻿ProjectService ps = new();
+﻿FileService fs = new();
 
 if (args.Length == 0)
 {
@@ -15,7 +15,7 @@ switch (command)
         break;
     case "-a":
     case "add":
-        Console.WriteLine("Add command not implemented yet.");
+        fs.AddToStaging(args.Length > 1 ? args[1] : ".");
         break;
     case "-c":
     case "commit":
