@@ -11,7 +11,7 @@ switch (command)
 {
     case "-i":
     case "init":
-        ps.initProject();
+        ProjectService.InitProject();
         break;
     case "-a":
     case "add":

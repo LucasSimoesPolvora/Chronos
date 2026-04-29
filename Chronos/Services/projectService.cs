@@ -1,6 +1,6 @@
 public class ProjectService
 {
-    public void initProject()
+    public static void InitProject()
     {
         string basepath = Directory.GetCurrentDirectory();
         string projectPath = Path.Combine(basepath, ".chronos");
