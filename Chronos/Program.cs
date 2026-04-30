@@ -1,6 +1,4 @@
-﻿FileService fs = new();
-
-if (args.Length == 0)
+﻿if (args.Length == 0)
 {
     Console.WriteLine("No command provided");
     return 0;
@@ -15,6 +13,7 @@ switch (command)
         break;
     case "-a":
     case "add":
+        FileService fs = new();
         fs.AddToStaging(args.Length > 1 ? args[1] : ".");
         break;
     case "-c":
