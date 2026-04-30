@@ -33,7 +33,7 @@ switch (command)
         break;
     case "-h":
     case "--help":
-        Console.WriteLine("Helper command not implemented yet.");
+        Console.WriteLine(CommandHelper.GenerateFullDocumentation());
         break;
     default:
         Console.WriteLine($"Unknown command: {command}");
