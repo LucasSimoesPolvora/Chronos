@@ -52,19 +52,6 @@ public class FileService
         }
     }
 
-    public string SaveFileStatus(string filePath)
-    {
-        if (!File.Exists(filePath))
-        {
-            throw new FileNotFoundException($"File not found: {filePath}");
-        }
-        string blobHash = CalculateFileHash(filePath);
-
-        SaveBlob(filePath, blobHash);
-
-        return blobHash;
-    }
-
     public string SaveBlob(string filePath, string blobHash)
     {
         try
@@ -135,7 +122,10 @@ public class FileService
             {
                 try
                 {
-                    string blobHash = SaveFileStatus(file.FilePath);
+
+                    string blobHash = CalculateFileHash(file.FilePath);
+
+                    SaveBlob(file.FilePath, blobHash);
                     
                     string projectRoot = Directory.GetCurrentDirectory();
                     string relativePath = Path.GetRelativePath(projectRoot, file.FilePath);
