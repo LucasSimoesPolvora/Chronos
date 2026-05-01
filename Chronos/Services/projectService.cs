@@ -20,6 +20,7 @@ public class ProjectService
         dir.Attributes |= FileAttributes.Hidden;
 
         dir.CreateSubdirectory("objects");
+        File.Create(Path.Combine(projectPath, "HEAD")).Close();
         Console.WriteLine("Project initialized successfully.");   
     }
 
