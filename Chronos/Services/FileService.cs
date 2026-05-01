@@ -4,24 +4,22 @@ public class FileService
 {
     public List<Blob> trackedFiles = [];
     private readonly IndexService _indexService;
-    private readonly VersionService _versionService;
     private readonly string ObjectsPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "objects");
 
     public FileService()
     {
         _indexService = new IndexService();
-        _versionService = new VersionService();
     }
 
-    public void GetFiles(string path, FileService versionService)
+    public void GetFiles(string path, FileService fs)
     {
         DirectoryInfo info = new(path);
 
         foreach (FileInfo file in info.GetFiles())
         {
-            if(versionService.trackedFiles.Find(f => f.FilePath == file.FullName) == null)
+            if(fs.trackedFiles.Find(f => f.FilePath == file.FullName) == null)
             {
-                versionService.trackedFiles.Add(new Blob { FilePath = file.FullName, Hash = CalculateFileHash(file.FullName), FileType = FileStatusEnum.untracked });
+                fs.trackedFiles.Add(new Blob { FilePath = file.FullName, Hash = CalculateFileHash(file.FullName), FileType = FileStatusEnum.untracked });
             }
         }
 
@@ -31,7 +29,7 @@ public class FileService
             {
                 continue;
             }
-            GetFiles(dir.FullName, versionService);
+            GetFiles(dir.FullName, fs);
         }
     }
 

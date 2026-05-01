@@ -28,7 +28,8 @@ switch (command)
         break;
     case "-c":
     case "commit":
-        Console.WriteLine("Commit command not implemented yet.");
+        VersionService vs = new();
+        vs.CommitVersion(args.Length > 1 ? args[1] : "No commit message");
         break;
     case "-l":
     case "log":

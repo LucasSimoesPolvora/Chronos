@@ -6,10 +6,9 @@ public class CommitService
     private readonly TreeService _treeService = new();
     private const uint MAGIC_NUMBER = 0x4348524F;
 
-    public Commit CreateProjectCommit(string rootPath, string message)
+    public Commit CreateProjectCommit(string message)
     {
-        // Create tree first
-        Tree tree = _treeService.CreateProjectTree(rootPath);
+        Tree tree = _treeService.CreateProjectTree();
         _treeService.SaveTree(tree);
 
         Commit commit = new()

@@ -4,8 +4,9 @@ public class TreeService
 {
     private readonly string ObjectsPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "objects");
     private readonly FileService _fileService = new();
+    
 
-    public Tree CreateProjectTree(string rootPath)
+    public Tree CreateProjectTree()
     {
         Tree tree = new()
         {
@@ -14,7 +15,7 @@ public class TreeService
             FileType = (FileStatusEnum)FileTypeEnum.Tree
         };
 
-        BuildTreeRecursive(rootPath, rootPath, tree);
+        BuildTreeRecursive(Directory.GetCurrentDirectory(), Directory.GetCurrentDirectory(), tree);
         
         tree.Hash = CalculateTreeHash(tree);
         return tree;
