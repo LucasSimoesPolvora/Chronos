@@ -12,6 +12,28 @@ public class FileService
         indexService.LoadIndex();
     }
 
+    public void GetFiles(string path, FileService versionService)
+    {
+        DirectoryInfo info = new(path);
+
+        foreach (FileInfo file in info.GetFiles())
+        {
+            if(versionService.trackedFiles.Find(f => f.File.FullName == file.FullName) == null)
+            {
+                versionService.trackedFiles.Add(new TrackedFile { File = file, FileType = FileStatusEnum.untracked });
+            }
+        }
+
+        foreach (DirectoryInfo dir in info.GetDirectories())
+        {
+            if(dir.FullName.Contains(".chronos"))
+            {
+                continue;
+            }
+            GetFiles(dir.FullName, versionService);
+        }
+    }
+
     private string CalculateFileHash(string filePath)
     {
         try
@@ -88,8 +110,7 @@ public class FileService
     public void AddToStaging(string pattern)
     {
         string normalizedPattern = Path.GetFullPath(pattern);
-        ProjectService projectService = new();
-        projectService.GetFiles(Directory.GetCurrentDirectory(), this);
+        GetFiles(Directory.GetCurrentDirectory(), this);
         
         List<TrackedFile> filesToStage = [];
 

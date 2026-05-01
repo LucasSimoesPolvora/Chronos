@@ -23,28 +23,6 @@ public class ProjectService
         Console.WriteLine("Project initialized successfully.");   
     }
 
-    public void GetFiles(string path, FileService versionService)
-    {
-        DirectoryInfo info = new(path);
-
-        foreach (FileInfo file in info.GetFiles())
-        {
-            if(versionService.trackedFiles.Find(f => f.File.FullName == file.FullName) == null)
-            {
-                versionService.trackedFiles.Add(new TrackedFile { File = file, FileType = FileStatusEnum.untracked });
-            }
-        }
-
-        foreach (DirectoryInfo dir in info.GetDirectories())
-        {
-            if(dir.FullName.Contains(".chronos"))
-            {
-                continue;
-            }
-            GetFiles(dir.FullName, versionService);
-        }
-    }
-
     public bool isProjectInitialized()
     {
         string projectPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos");
