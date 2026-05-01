@@ -3,13 +3,12 @@ using System.Security.Cryptography;
 public class FileService
 {
     public List<TrackedFile> trackedFiles = [];
-    private Index index = new();
-    private readonly string IndexPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "index.json");
+    private IndexService indexService = new();
     private readonly string ObjectsPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "objects");
 
     public FileService()
     {
-        LoadIndex();
+        indexService.LoadIndex();
     }
 
     private string CalculateFileHash(string filePath)
@@ -26,7 +25,7 @@ public class FileService
     {
 
         if(!Directory.Exists(Path.Combine(ObjectsPath, blobHash[..2]))) Directory.CreateDirectory(Path.Combine(ObjectsPath, blobHash[..2]));
-        
+
         string blobPath = Path.Combine(ObjectsPath, blobHash[..2], blobHash[2..]);
         
         if (File.Exists(blobPath))
@@ -34,49 +33,9 @@ public class FileService
             return blobPath;
         }
 
-        if(!Directory.Exists(ObjectsPath)) Directory.CreateDirectory(ObjectsPath);
 
         File.Copy(filePath, blobPath, overwrite: false);
         return blobPath;
-    }
-
-    private void LoadIndex()
-    {
-        if (File.Exists(IndexPath))
-        {
-            try
-            {
-                string json = File.ReadAllText(IndexPath);
-                
-                // Check if file is empty
-                if (string.IsNullOrWhiteSpace(json))
-                {
-                    index = new Index();
-                    return;
-                }
-                
-                index = Index.FromJson(json);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error loading index: {ex.Message}");
-                index = new Index();
-            }
-        }
-    }
-
-    private void SaveIndex()
-    {
-        try
-        {
-            Directory.CreateDirectory(ObjectsPath);
-            string json = index.ToJson();
-            File.WriteAllText(IndexPath, json);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error saving index: {ex.Message}");
-        }
     }
 
     public string SaveFileStatus(string filePath)
@@ -93,7 +52,7 @@ public class FileService
         string projectRoot = Directory.GetCurrentDirectory();
         string relativePath = Path.GetRelativePath(projectRoot, filePath);
 
-        index.AddOrUpdateEntry(relativePath, blobHash);
+        indexService.AddOrUpdateEntry(relativePath, blobHash);
 
         return blobHash;
     }
@@ -156,7 +115,7 @@ public class FileService
                 }
             }
 
-            SaveIndex();   
+            indexService.SaveIndex();   
 
             Console.WriteLine($"{filesToStage.Count} file(s) added to staging.");
         }
