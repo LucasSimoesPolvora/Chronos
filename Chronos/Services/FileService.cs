@@ -24,7 +24,10 @@ public class FileService
 
     private string SaveBlob(string filePath, string blobHash)
     {
-        string blobPath = Path.Combine(ObjectsPath, blobHash);
+
+        if(!Directory.Exists(Path.Combine(ObjectsPath, blobHash[..2]))) Directory.CreateDirectory(Path.Combine(ObjectsPath, blobHash[..2]));
+        
+        string blobPath = Path.Combine(ObjectsPath, blobHash[..2], blobHash[2..]);
         
         if (File.Exists(blobPath))
         {
