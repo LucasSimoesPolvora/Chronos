@@ -35,7 +35,7 @@ public class FileService
         }
     }
 
-    private string CalculateFileHash(string filePath)
+    public string CalculateFileHash(string filePath)
     {
         try
         {
