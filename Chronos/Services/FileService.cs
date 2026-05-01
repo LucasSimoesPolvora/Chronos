@@ -4,7 +4,7 @@ public class FileService
 {
     public List<TrackedFile> trackedFiles = [];
     private Index index = new();
-    private readonly string IndexPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "index");
+    private readonly string IndexPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "index.json");
     private readonly string ObjectsPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "objects");
 
     public FileService()
@@ -43,8 +43,16 @@ public class FileService
         {
             try
             {
-                byte[] data = File.ReadAllBytes(IndexPath);
-                index = Index.FromBinary(data);
+                string json = File.ReadAllText(IndexPath);
+                
+                // Check if file is empty
+                if (string.IsNullOrWhiteSpace(json))
+                {
+                    index = new Index();
+                    return;
+                }
+                
+                index = Index.FromJson(json);
             }
             catch (Exception ex)
             {
@@ -59,8 +67,8 @@ public class FileService
         try
         {
             Directory.CreateDirectory(ObjectsPath);
-            byte[] data = index.ToBinary();
-            File.WriteAllBytes(IndexPath, data);
+            string json = index.ToJson();
+            File.WriteAllText(IndexPath, json);
         }
         catch (Exception ex)
         {

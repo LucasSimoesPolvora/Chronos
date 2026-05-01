@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+using System.Text.Json;
 
 public class IndexEntry
 {
@@ -9,9 +9,6 @@ public class IndexEntry
 
 public class Index
 {
-    private const uint MAGIC_NUMBER = 0x4348524F;
-    private const ushort VERSION = 1;
-
     public List<IndexEntry> Entries { get; set; } = [];
 
     public IndexEntry? GetEntry(string relativePath)
@@ -38,66 +35,21 @@ public class Index
     }
 
     /// <summary>
-    /// Serializes index to binary format
-    /// Format: [Magic:4][Version:2][EntryCount:4][Entry...]
-    /// Each Entry: [PathLength:2][Path][HashLength:2][Hash]
+    /// Serializes index to JSON format
     /// </summary>
-    public byte[] ToBinary()
+    public string ToJson()
     {
-        using (var ms = new MemoryStream())
-        using (var writer = new BinaryWriter(ms))
-        {
-            // Write header
-            writer.Write(MAGIC_NUMBER);
-            writer.Write(VERSION);
-            writer.Write(Entries.Count);
-
-            // Write entries
-            foreach (var entry in Entries)
-            {
-                writer.Write((ushort)entry.RelativePath.Length);
-                writer.Write(entry.RelativePath);
-                writer.Write((ushort)entry.BlobHash.Length);
-                writer.Write(entry.BlobHash);
-            }
-
-            return ms.ToArray();
-        }
+        JsonSerializerOptions options = new() { WriteIndented = true };
+        JsonContext context = new(options);
+        return JsonSerializer.Serialize(this, context.Index);
     }
 
     /// <summary>
-    /// Deserializes index from binary format
+    /// Deserializes index from JSON format
     /// </summary>
-    public static Index FromBinary(byte[] data)
+    public static Index FromJson(string json)
     {
-        using (var ms = new MemoryStream(data))
-        using (var reader = new BinaryReader(ms))
-        {
-            // Read and verify header
-            uint magic = reader.ReadUInt32();
-            if (magic != MAGIC_NUMBER)
-                throw new InvalidOperationException("Invalid index file format: wrong magic number");
-
-            ushort version = reader.ReadUInt16();
-            if (version != VERSION)
-                throw new InvalidOperationException($"Unsupported index version: {version}");
-
-            int entryCount = reader.ReadInt32();
-            var index = new Index();
-
-            // Read entries
-            for (int i = 0; i < entryCount; i++)
-            {
-                ushort pathLength = reader.ReadUInt16();
-                string path = new string(reader.ReadChars(pathLength));
-
-                ushort hashLength = reader.ReadUInt16();
-                string hash = new string(reader.ReadChars(hashLength));
-
-                index.Entries.Add(new IndexEntry { RelativePath = path, BlobHash = hash });
-            }
-
-            return index;
-        }
+        JsonContext context = new();
+        return JsonSerializer.Deserialize(json, context.Index) ?? new Index();
     }
 }
