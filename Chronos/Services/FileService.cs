@@ -64,7 +64,7 @@ public class FileService
             {
                 return blobPath;
             }
-            byte[] content = VersionService.ToBinary(File.ReadAllText(filePath), FileTypeEnum.Blob);
+            byte[] content = ToBinary(File.ReadAllText(filePath), FileTypeEnum.Blob);
             File.WriteAllBytes(blobPath, content);
             return blobPath;
         }
@@ -72,6 +72,21 @@ public class FileService
         {
             throw new UnauthorizedAccessException($"Permission denied: Unable to access file '{filePath}'. Check file and directory permissions.");
         }
+    }
+
+    private static byte[] ToBinary(string content, FileTypeEnum type)
+    {
+        using (var ms = new MemoryStream())
+        using (var writer = new BinaryWriter(ms))
+        {
+            writer.Write(VersionService.MAGIC_NUMBER);
+            writer.Write((byte)type);
+            writer.Write((ushort)content.Length);
+            writer.Write(content);
+
+            return ms.ToArray();
+        }
+
     }
 
     public void AddToStaging(string pattern)
