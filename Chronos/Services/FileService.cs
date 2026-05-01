@@ -5,6 +5,7 @@ public class FileService
     public List<TrackedFile> trackedFiles = [];
     private IndexService indexService = new();
     private readonly string ObjectsPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "objects");
+    private const uint MAGIC_NUMBER = 0x4348524F;
 
     public FileService()
     {
@@ -32,10 +33,24 @@ public class FileService
         {
             return blobPath;
         }
-
-
-        File.Copy(filePath, blobPath, overwrite: false);
+        byte[] content = ToBinary(File.ReadAllText(filePath), FileTypeEnum.Blob);
+        File.WriteAllBytes(blobPath, content);
         return blobPath;
+    }
+
+    private static byte[] ToBinary(string blob, FileTypeEnum type)
+    {
+        using (var ms = new MemoryStream())
+        using (var writer = new BinaryWriter(ms))
+        {
+            writer.Write(MAGIC_NUMBER);
+            writer.Write((byte)type);
+            writer.Write((ushort)blob.Length);
+            writer.Write(blob);
+
+            return ms.ToArray();
+        }
+
     }
 
     public string SaveFileStatus(string filePath)
