@@ -47,19 +47,4 @@ public class IndexService
     {
         index.AddOrUpdateEntry(relativePath, blobHash);
     }
-
-    public IndexEntry? GetEntry(string relativePath)
-    {
-        return index.GetEntry(relativePath);
-    }
-
-    public bool EntryExists(string relativePath)
-    {
-        return index.EntryExists(relativePath);
-    }
-
-    public List<IndexEntry> GetAllEntries()
-    {
-        return index.Entries;
-    }
 }
