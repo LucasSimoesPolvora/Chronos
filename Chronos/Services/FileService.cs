@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 
 public class FileService
 {
-    public List<TrackedFile> trackedFiles = [];
+    public List<Blob> trackedFiles = [];
     private IndexService indexService = new();
     private readonly string ObjectsPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "objects");
     private const uint MAGIC_NUMBER = 0x4348524F;
@@ -18,9 +18,9 @@ public class FileService
 
         foreach (FileInfo file in info.GetFiles())
         {
-            if(versionService.trackedFiles.Find(f => f.File.FullName == file.FullName) == null)
+            if(versionService.trackedFiles.Find(f => f.FilePath == file.FullName) == null)
             {
-                versionService.trackedFiles.Add(new TrackedFile { File = file, FileType = FileStatusEnum.untracked });
+                versionService.trackedFiles.Add(new Blob { FilePath = file.FullName, Hash = CalculateFileHash(file.FullName), FileType = FileStatusEnum.untracked });
             }
         }
 
@@ -112,7 +112,7 @@ public class FileService
         string normalizedPattern = Path.GetFullPath(pattern);
         GetFiles(Directory.GetCurrentDirectory(), this);
         
-        List<TrackedFile> filesToStage = [];
+        List<Blob> filesToStage = [];
 
         if (pattern == ".")
         {
@@ -124,20 +124,20 @@ public class FileService
             string searchPattern = Path.GetFileName(normalizedPattern);
             filesToStage = trackedFiles.Where(f =>
             {
-                string fileDir = Path.GetDirectoryName(f.File.FullName) ?? ".";
+                string fileDir = Path.GetDirectoryName(f.FilePath) ?? ".";
                 return fileDir.StartsWith(directory, StringComparison.OrdinalIgnoreCase) &&
-                       IsMatch(f.File.Name, searchPattern);
+                       IsMatch(f.FileName, searchPattern);
             }).ToList();
         }
         else if (Directory.Exists(normalizedPattern))
         {
             filesToStage = trackedFiles.Where(f =>
-                f.File.FullName.StartsWith(normalizedPattern, StringComparison.OrdinalIgnoreCase)
+                f.FilePath.StartsWith(normalizedPattern, StringComparison.OrdinalIgnoreCase)
             ).ToList();
         }
         else if (File.Exists(normalizedPattern))
         {
-            TrackedFile? trackedFile = trackedFiles.Find(f => f.File.FullName == normalizedPattern);
+            Blob? trackedFile = trackedFiles.Find(f => f.FilePath == normalizedPattern);
             if (trackedFile != null)
             {
                 filesToStage.Add(trackedFile);
@@ -151,16 +151,16 @@ public class FileService
 
         if (filesToStage.Count > 0)
         {
-            foreach (TrackedFile file in filesToStage)
+            foreach (Blob file in filesToStage)
             {
                 try
                 {
-                    string blobHash = SaveFileStatus(file.File.FullName);
+                    string blobHash = SaveFileStatus(file.FilePath);
                     
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error staging file {file.File.Name}: {ex.Message}");
+                    Console.WriteLine($"Error staging file {file.FileName}: {ex.Message}");
                 }
             }
 
