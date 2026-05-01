@@ -3,7 +3,6 @@ using System.Security.Cryptography;
 public class TreeService
 {
     private readonly string ObjectsPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "objects");
-    private const uint MAGIC_NUMBER = 0x4348524F;
     private readonly FileService _fileService = new();
 
     public Tree CreateProjectTree(string rootPath)
@@ -94,7 +93,7 @@ public class TreeService
         using (var ms = new MemoryStream())
         using (var writer = new BinaryWriter(ms))
         {
-            writer.Write(MAGIC_NUMBER);
+            writer.Write(VersionService.MAGIC_NUMBER);
             writer.Write((byte)tree.FileType);
             writer.Write((ushort)tree.Hash.Length);
             writer.Write(tree.Hash);
