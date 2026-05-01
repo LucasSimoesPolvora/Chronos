@@ -3,13 +3,14 @@ using System.Security.Cryptography;
 public class FileService
 {
     public List<Blob> trackedFiles = [];
-    private IndexService indexService = new();
+    private readonly IndexService _indexService;
+    private readonly VersionService _versionService;
     private readonly string ObjectsPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "objects");
-    private const uint MAGIC_NUMBER = 0x4348524F;
 
     public FileService()
     {
-        indexService.LoadIndex();
+        _indexService = new IndexService();
+        _versionService = new VersionService();
     }
 
     public void GetFiles(string path, FileService versionService)
@@ -51,7 +52,20 @@ public class FileService
         }
     }
 
-    private string SaveBlob(string filePath, string blobHash)
+    public string SaveFileStatus(string filePath)
+    {
+        if (!File.Exists(filePath))
+        {
+            throw new FileNotFoundException($"File not found: {filePath}");
+        }
+        string blobHash = CalculateFileHash(filePath);
+
+        SaveBlob(filePath, blobHash);
+
+        return blobHash;
+    }
+
+    public string SaveBlob(string filePath, string blobHash)
     {
         try
         {
@@ -63,7 +77,7 @@ public class FileService
             {
                 return blobPath;
             }
-            byte[] content = ToBinary(File.ReadAllText(filePath), FileTypeEnum.Blob);
+            byte[] content = VersionService.ToBinary(File.ReadAllText(filePath), FileTypeEnum.Blob);
             File.WriteAllBytes(blobPath, content);
             return blobPath;
         }
@@ -71,40 +85,6 @@ public class FileService
         {
             throw new UnauthorizedAccessException($"Permission denied: Unable to access file '{filePath}'. Check file and directory permissions.");
         }
-    }
-
-    private static byte[] ToBinary(string blob, FileTypeEnum type)
-    {
-        using (var ms = new MemoryStream())
-        using (var writer = new BinaryWriter(ms))
-        {
-            writer.Write(MAGIC_NUMBER);
-            writer.Write((byte)type);
-            writer.Write((ushort)blob.Length);
-            writer.Write(blob);
-
-            return ms.ToArray();
-        }
-
-    }
-
-    public string SaveFileStatus(string filePath)
-    {
-        if (!File.Exists(filePath))
-        {
-            throw new FileNotFoundException($"File not found: {filePath}");
-        }
-
-        string blobHash = CalculateFileHash(filePath);
-
-        SaveBlob(filePath, blobHash);
-
-        string projectRoot = Directory.GetCurrentDirectory();
-        string relativePath = Path.GetRelativePath(projectRoot, filePath);
-
-        indexService.AddOrUpdateEntry(relativePath, blobHash);
-
-        return blobHash;
     }
 
     public void AddToStaging(string pattern)
@@ -157,6 +137,9 @@ public class FileService
                 {
                     string blobHash = SaveFileStatus(file.FilePath);
                     
+                    string projectRoot = Directory.GetCurrentDirectory();
+                    string relativePath = Path.GetRelativePath(projectRoot, file.FilePath);
+                    _indexService.AddOrUpdateEntry(relativePath, blobHash);
                 }
                 catch (Exception ex)
                 {
@@ -164,7 +147,7 @@ public class FileService
                 }
             }
 
-            indexService.SaveIndex();   
+            _indexService.SaveIndex();   
 
             Console.WriteLine($"{filesToStage.Count} file(s) added to staging.");
         }
