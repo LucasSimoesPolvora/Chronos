@@ -31,7 +31,7 @@ public class ProjectService
         {
             if(versionService.trackedFiles.Find(f => f.File.FullName == file.FullName) == null)
             {
-                versionService.trackedFiles.Add(new TrackedFile { File = file, FileType = FileTypeEnum.untracked });
+                versionService.trackedFiles.Add(new TrackedFile { File = file, FileType = FileStatusEnum.untracked });
             }
         }
 
