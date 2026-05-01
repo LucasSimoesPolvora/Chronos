@@ -29,6 +29,11 @@ public class IndexService
         }
     }
 
+    public IndexEntry[] GetEntries()
+    {
+        return index.Entries.ToArray();
+    }
+
     public void SaveIndex()
     {
         try

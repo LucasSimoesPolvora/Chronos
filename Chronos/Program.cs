@@ -37,7 +37,8 @@ switch (command)
         break;
     case "-s":
     case "status":
-        vs.GetVersionState();
+        vs.GetVersionState(fs);
+        VersionService.DisplayVersionState(fs);
         break;
     case "checkout":
         Console.WriteLine("Checkout command not implemented yet.");

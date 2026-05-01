@@ -81,4 +81,19 @@ public class CommitService
             return ms.ToArray();
         }
     }
+
+    public bool IsFileModified(string filePath, string indexBlobHash)
+    {
+        if (!File.Exists(filePath))
+            return true;
+
+        using (var sha256 = SHA256.Create())
+        {
+            byte[] fileBytes = File.ReadAllBytes(filePath);
+            byte[] hashBytes = sha256.ComputeHash(fileBytes);
+            string currentHash = Convert.ToHexString(hashBytes).ToLower();
+            
+            return currentHash != indexBlobHash;
+        }
+    }
 }

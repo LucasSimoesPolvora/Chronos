@@ -20,5 +20,50 @@ public class VersionService
         _commitService.SaveCommit(commit);
     }
 
+    public void GetVersionState(FileService fs)
+    {
+        fs.GetFiles(Directory.GetCurrentDirectory(), fs);
+        IndexEntry[] entries = _indexService.GetEntries();
+
+        foreach(IndexEntry entry in entries)
+        {
+            bool isModified = File.Exists(HeadFilePath) ? _commitService.IsFileModified(entry.RelativePath, entry.BlobHash) : false;
+            Blob? trackedFile = fs.trackedFiles.Find(f => Path.GetRelativePath(Directory.GetCurrentDirectory(), f.FilePath) == entry.RelativePath);
+            if (trackedFile != null)
+            {
+                if(isModified)
+                {
+                    trackedFile.Status = FileStatusEnum.modified;
+                }
+                else
+                {
+                    trackedFile.Status = FileStatusEnum.staged;
+                }
+            }
+        }
+    }
+
+    public static void DisplayVersionState(FileService fs)
+    {
+         _ = fs.trackedFiles.OrderBy(f => f.Status).ThenBy(f => f.FileName).ToList();
+        foreach(Blob file in fs.trackedFiles)
+        {
+            switch(file.Status)
+            {
+                case FileStatusEnum.untracked:
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    break;
+                case FileStatusEnum.staged:
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    break;
+                case FileStatusEnum.modified:
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    break;
+            }
+            Console.WriteLine($"{file.FileName} - {file.Status}");
+        }
+
+        Console.ResetColor();
+    }
     
 }
