@@ -5,6 +5,16 @@
 }
 string command = args[0];
 
+if(command != "-i" && command != "init")
+{
+    ProjectService projectService = new();
+    if (!projectService.isProjectInitialized())
+    {
+        Console.WriteLine("No project found. Please initialize a project first using 'chronos init'.");
+        return 1;
+    }
+}
+
 switch (command)
 {
     case "-i":

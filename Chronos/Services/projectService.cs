@@ -44,4 +44,10 @@ public class ProjectService
             GetFiles(dir.FullName, versionService);
         }
     }
+
+    public bool isProjectInitialized()
+    {
+        string projectPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos");
+        return Directory.Exists(projectPath);
+    }
 }
