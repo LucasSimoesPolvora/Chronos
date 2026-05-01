@@ -19,7 +19,7 @@ public class FileService
         {
             if(fs.trackedFiles.Find(f => f.FilePath == file.FullName) == null)
             {
-                fs.trackedFiles.Add(new Blob { FilePath = file.FullName, Hash = CalculateFileHash(file.FullName), FileType = FileStatusEnum.untracked });
+                fs.trackedFiles.Add(new Blob { FilePath = file.FullName, Hash = CalculateFileHash(file.FullName), Status = FileStatusEnum.untracked });
             }
         }
 

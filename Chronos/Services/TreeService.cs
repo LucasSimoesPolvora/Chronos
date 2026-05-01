@@ -35,7 +35,7 @@ public class TreeService
                 {
                     FilePath = relativePath,
                     Hash = hash,
-                    FileType = FileStatusEnum.untracked
+                    Status = FileStatusEnum.untracked
                 });
             }
 
@@ -106,7 +106,7 @@ public class TreeService
                 writer.Write(blob.FilePath);
                 writer.Write((ushort)blob.Hash.Length);
                 writer.Write(blob.Hash);
-                writer.Write((byte)blob.FileType);
+                writer.Write((byte)blob.Status);
             }
 
             return ms.ToArray();

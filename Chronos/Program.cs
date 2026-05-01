@@ -1,4 +1,6 @@
-﻿if (args.Length == 0)
+﻿FileService fs = new();
+VersionService vs = new();
+if (args.Length == 0)
 {
     Console.WriteLine("No command provided");
     return 0;
@@ -23,12 +25,10 @@ switch (command)
         break;
     case "-a":
     case "add":
-        FileService fs = new();
         fs.AddToStaging(args.Length > 1 ? args[1] : ".");
         break;
     case "-c":
     case "commit":
-        VersionService vs = new();
         vs.CommitVersion(args.Length > 1 ? args[1] : "No commit message");
         break;
     case "-l":
@@ -37,7 +37,7 @@ switch (command)
         break;
     case "-s":
     case "status":
-        Console.WriteLine("Status command not implemented yet.");
+        vs.GetVersionState();
         break;
     case "checkout":
         Console.WriteLine("Checkout command not implemented yet.");
