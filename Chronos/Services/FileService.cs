@@ -14,28 +14,41 @@ public class FileService
 
     private string CalculateFileHash(string filePath)
     {
-        using (var sha256 = SHA256.Create())
-        using (var stream = File.OpenRead(filePath))
+        try
         {
-            byte[] hashBytes = sha256.ComputeHash(stream);
-            return Convert.ToHexString(hashBytes).ToLower();
+            using (var sha256 = SHA256.Create())
+            using (var stream = File.OpenRead(filePath))
+            {
+                byte[] hashBytes = sha256.ComputeHash(stream);
+                return Convert.ToHexString(hashBytes).ToLower();
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            throw new UnauthorizedAccessException($"Permission denied: Unable to read file '{filePath}'. Check file permissions.");
         }
     }
 
     private string SaveBlob(string filePath, string blobHash)
     {
-
-        if(!Directory.Exists(Path.Combine(ObjectsPath, blobHash[..2]))) Directory.CreateDirectory(Path.Combine(ObjectsPath, blobHash[..2]));
-
-        string blobPath = Path.Combine(ObjectsPath, blobHash[..2], blobHash[2..]);
-        
-        if (File.Exists(blobPath))
+        try
         {
+            if(!Directory.Exists(Path.Combine(ObjectsPath, blobHash[..2]))) Directory.CreateDirectory(Path.Combine(ObjectsPath, blobHash[..2]));
+
+            string blobPath = Path.Combine(ObjectsPath, blobHash[..2], blobHash[2..]);
+            
+            if (File.Exists(blobPath))
+            {
+                return blobPath;
+            }
+            byte[] content = ToBinary(File.ReadAllText(filePath), FileTypeEnum.Blob);
+            File.WriteAllBytes(blobPath, content);
             return blobPath;
         }
-        byte[] content = ToBinary(File.ReadAllText(filePath), FileTypeEnum.Blob);
-        File.WriteAllBytes(blobPath, content);
-        return blobPath;
+        catch (UnauthorizedAccessException)
+        {
+            throw new UnauthorizedAccessException($"Permission denied: Unable to access file '{filePath}'. Check file and directory permissions.");
+        }
     }
 
     private static byte[] ToBinary(string blob, FileTypeEnum type)
