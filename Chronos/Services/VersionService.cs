@@ -109,7 +109,7 @@ public class VersionService
 
             if(file.Status != FileStatusEnum.commited)
             {
-                Console.WriteLine($"{file.FileName} - {file.Status}");
+                Console.WriteLine($"{Path.GetRelativePath(Directory.GetCurrentDirectory(), file.FilePath)} - {file.Status}");
             }
         }
         Console.ResetColor();
