@@ -29,7 +29,7 @@ switch (command)
         break;
     case "-c":
     case "commit":
-        vs.CommitVersion(args.Length > 1 ? args[1] : "No commit message");
+        HandleCommit();
         break;
     case "-l":
     case "log":
@@ -50,6 +50,20 @@ switch (command)
     default:
         Console.WriteLine($"Unknown command: {command}");
         return 1;
+}
+
+void HandleCommit()
+{
+    int index = args.ToList().FindIndex(arg => arg == "-m");
+    if (index != -1 && index < args.Length - 1)
+    {
+        string message = args[index + 1];
+        vs.CommitVersion(message);
+    }
+    else
+    {
+        vs.CommitVersion("No commit message");
+    }
 }
 
 return 0;
