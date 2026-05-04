@@ -1,3 +1,4 @@
+using System.Net;
 using System.Security.Cryptography;
 
 public class TreeService
@@ -96,20 +97,62 @@ public class TreeService
         {
             writer.Write(VersionService.MAGIC_NUMBER);
             writer.Write((byte)tree.FileType);
-            writer.Write((ushort)tree.Hash.Length);
             writer.Write(tree.Hash);
             writer.Write(tree.Blobs.Count);
 
             foreach (var blob in tree.Blobs)
             {
-                writer.Write((ushort)blob.FilePath.Length);
                 writer.Write(blob.FilePath);
-                writer.Write((ushort)blob.Hash.Length);
                 writer.Write(blob.Hash);
-                writer.Write((byte)blob.Status);
             }
 
             return ms.ToArray();
+        }
+    }
+
+    public Tree LoadTree(string treeHash)
+    {
+        string treePath = Path.Combine(ObjectsPath, treeHash[..2], treeHash[2..]);
+        if (!File.Exists(treePath))
+            throw new FileNotFoundException($"Tree {treeHash} not found.");
+        byte[] content = File.ReadAllBytes(treePath);
+        return FromBinary(content);
+    }
+
+    private Tree FromBinary(byte[] data)
+    {
+        using (var ms = new MemoryStream(data))
+        using (var reader = new BinaryReader(ms))
+        {
+            uint magic = reader.ReadUInt32();
+            if (magic != VersionService.MAGIC_NUMBER)
+                throw new InvalidDataException("Invalid tree object.");
+
+            FileTypeEnum fileType = (FileTypeEnum)reader.ReadByte();
+            if (fileType != FileTypeEnum.Tree)
+                throw new InvalidDataException("Data is not a tree object.");
+
+            string hash = reader.ReadString();
+            int blobCount = reader.ReadInt32();
+            List<Blob> blobs = new();
+            for (int i = 0; i < blobCount; i++)
+            {
+                string filePath = reader.ReadString();
+                string blobHash = reader.ReadString();
+                blobs.Add(new Blob
+                {
+                    FilePath = filePath,
+                    Hash = blobHash,
+                    Status = FileStatusEnum.commited
+                });
+            }
+
+            return new Tree
+            {
+                Hash = hash,
+                Blobs = blobs,
+                FileType = (FileStatusEnum)FileTypeEnum.Tree
+            };
         }
     }
 }

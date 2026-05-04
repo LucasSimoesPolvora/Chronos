@@ -79,7 +79,6 @@ public class FileService
         {
             writer.Write(VersionService.MAGIC_NUMBER);
             writer.Write((byte)type);
-            writer.Write((ushort)content.Length);
             writer.Write(content);
 
             return ms.ToArray();

@@ -2,12 +2,14 @@ public class VersionService
 {
     private readonly IndexService _indexService;
     private readonly static CommitService? _commitService;
+    private readonly static TreeService? _treeService;
     public const uint MAGIC_NUMBER = 0x4348524F;
     private readonly static string HeadFilePath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "HEAD");
 
     static VersionService()
     {
         _commitService = new CommitService();
+        _treeService = new TreeService();
     }
 
     public VersionService()
@@ -51,10 +53,40 @@ public class VersionService
                 }
                 else
                 {
-                    trackedFile.Status = FileStatusEnum.staged;
+                    trackedFile.Status = CheckIfStaged(entry);
                 }
             }
         }
+    }
+
+    public FileStatusEnum CheckIfStaged(IndexEntry entry)
+    {
+        if (_commitService == null)
+        {
+            Console.WriteLine("Commit service not initialized.");
+            return FileStatusEnum.untracked;
+        }
+        if (_treeService == null)
+        {
+            Console.WriteLine("Tree service not initialized.");
+            return FileStatusEnum.untracked;
+        }
+
+        if(string.IsNullOrEmpty(File.ReadAllText(HeadFilePath)))
+        {
+            return FileStatusEnum.staged;
+        }
+        
+        Tree previousCommitTree = _treeService.LoadTree(_commitService.LoadCommit(File.ReadAllText(HeadFilePath)).TreeHash);
+        Blob? previousBlob = previousCommitTree.Blobs.Find(b => b.FilePath == entry.RelativePath);
+        if (previousBlob != null && previousBlob.Hash == entry.BlobHash)
+        {
+            return FileStatusEnum.commited;
+        } else
+        {
+            return FileStatusEnum.staged;
+        }
+        
     }
 
     public static void DisplayVersionState(FileService fs)
@@ -74,9 +106,12 @@ public class VersionService
                     Console.ForegroundColor = ConsoleColor.Yellow;
                     break;
             }
-            Console.WriteLine($"{file.FileName} - {file.Status}");
-        }
 
+            if(file.Status != FileStatusEnum.commited)
+            {
+                Console.WriteLine($"{file.FileName} - {file.Status}");
+            }
+        }
         Console.ResetColor();
     }
 
