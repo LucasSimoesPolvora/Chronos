@@ -33,7 +33,7 @@ switch (command)
         break;
     case "-l":
     case "log":
-        Console.WriteLine("Log command not implemented yet.");
+        VersionService.DisplayVersionHistory();
         break;
     case "-s":
     case "status":

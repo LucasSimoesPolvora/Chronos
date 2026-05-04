@@ -1,19 +1,28 @@
 public class VersionService
 {
     private readonly IndexService _indexService;
-    private readonly CommitService _commitService;
+    private readonly static CommitService? _commitService;
     public const uint MAGIC_NUMBER = 0x4348524F;
-    public string HeadFilePath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "HEAD");
+    private readonly static string HeadFilePath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "HEAD");
+
+    static VersionService()
+    {
+        _commitService = new CommitService();
+    }
 
     public VersionService()
     {
         _indexService = new IndexService();
-        _commitService = new CommitService();
         _indexService.LoadIndex();
     }
 
     public void CommitVersion(string message)
     {
+        if(_commitService == null)
+        {
+            Console.WriteLine("Commit service not initialized.");
+            return;
+        }
         Commit commit = _commitService.CreateProjectCommit(message);
 
         File.WriteAllText(HeadFilePath, commit.Hash);
@@ -27,6 +36,11 @@ public class VersionService
 
         foreach(IndexEntry entry in entries)
         {
+            if(_commitService == null)
+            {
+                Console.WriteLine("Commit service not initialized.");
+                return;
+            }
             bool isModified = File.Exists(HeadFilePath) ? _commitService.IsFileModified(entry.RelativePath, entry.BlobHash) : false;
             Blob? trackedFile = fs.trackedFiles.Find(f => Path.GetRelativePath(Directory.GetCurrentDirectory(), f.FilePath) == entry.RelativePath);
             if (trackedFile != null)
@@ -64,6 +78,46 @@ public class VersionService
         }
 
         Console.ResetColor();
+    }
+
+    public static void DisplayVersionHistory()
+    {
+        string lastCommitHash = File.ReadAllText(HeadFilePath);
+
+        if(string.IsNullOrEmpty(lastCommitHash))
+        {
+            Console.WriteLine("No commits found.");
+            return;
+        } else
+        {
+            DisplayVersionHistoryRecursive(lastCommitHash);
+        }
+    }
+
+    public static void DisplayVersionHistoryRecursive(string commitHash, int indentLevel = 0)
+    {
+        if (_commitService == null)
+        {
+            Console.WriteLine("Commit service not initialized.");
+            return;
+        }
+
+        if(string.IsNullOrEmpty(commitHash))
+        {
+            return;
+        }
+
+        Commit? commit = _commitService.LoadCommit(commitHash);
+        if (commit == null)
+        {
+            Console.WriteLine("Invalid commit hash in history.");
+            return;
+        }
+
+        Console.WriteLine($"- {commit.Timestamp:yyyy-MM-dd HH:mm:ss} {commit.Message} ({commit.Hash})");
+
+        DisplayVersionHistoryRecursive(commit.ParentHash, indentLevel + 1);
+        
     }
     
 }
