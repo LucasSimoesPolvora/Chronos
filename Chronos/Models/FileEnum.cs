@@ -3,7 +3,8 @@ public enum FileStatusEnum
     staged,
     modified,
     untracked,
-    commited
+    commited,
+    deleted
 }
 
 public enum FileTypeEnum

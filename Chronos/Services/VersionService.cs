@@ -68,6 +68,14 @@ public class VersionService
                 {
                     trackedFile.Status = CheckIfStaged(entry);
                 }
+            } else
+            {
+                fs.trackedFiles.Add(new Blob
+                {
+                    FilePath = Path.Combine(Directory.GetCurrentDirectory(), entry.RelativePath),
+                    Hash = entry.BlobHash,
+                    Status = FileStatusEnum.deleted
+                });
             }
         }
     }
@@ -116,6 +124,9 @@ public class VersionService
                     break;
                 case FileStatusEnum.modified:
                     Console.ForegroundColor = ConsoleColor.Yellow;
+                    break;
+                case FileStatusEnum.deleted:
+                    Console.ForegroundColor = ConsoleColor.Magenta;
                     break;
             }
 
