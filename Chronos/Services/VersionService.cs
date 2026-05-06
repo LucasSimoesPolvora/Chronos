@@ -1,32 +1,69 @@
 public class VersionService
 {
-    private readonly IndexService _indexService;
-    private readonly CommitService _commitService;
+    private readonly static IndexService? _indexService;
+    private readonly static CommitService? _commitService;
+    private readonly static TreeService? _treeService;
     public const uint MAGIC_NUMBER = 0x4348524F;
-    public string HeadFilePath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "HEAD");
+    private readonly static string HeadFilePath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "HEAD");
+
+    static VersionService()
+    {
+        _commitService = new CommitService();
+        _treeService = new TreeService();
+        _indexService = new IndexService();
+    }
 
     public VersionService()
     {
-        _indexService = new IndexService();
-        _commitService = new CommitService();
-        _indexService.LoadIndex();
+        _indexService?.LoadIndex();
     }
 
     public void CommitVersion(string message)
     {
+        if(_commitService == null)
+        {
+            Console.WriteLine("Commit service not initialized.");
+            return;
+        }
+
+        if(!CheckIfFilesStaged(new FileService()))
+        {
+            Console.WriteLine("Cannot commit. No files staged.");
+            return;
+        }
+
         Commit commit = _commitService.CreateProjectCommit(message);
 
         File.WriteAllText(HeadFilePath, commit.Hash);
+        _indexService?.ClearIndex();
         _commitService.SaveCommit(commit);
+    }
+
+    public bool CheckIfFilesStaged(FileService fs)
+    {
+        GetVersionState(fs);
+
+        bool hasDeletedStaged = _indexService?.GetEntries().ToList().Any(e => e.Status == FileStatusEnum.deleted) ?? false;
+
+        return fs.trackedFiles.Any(f => f.Status == FileStatusEnum.staged) || hasDeletedStaged;
     }
 
     public void GetVersionState(FileService fs)
     {
         fs.GetFiles(Directory.GetCurrentDirectory(), fs);
-        IndexEntry[] entries = _indexService.GetEntries();
+        IndexEntry[]? entries = _indexService?.GetEntries();
 
+        if(entries == null)
+        {
+            return;
+        }
         foreach(IndexEntry entry in entries)
         {
+            if(_commitService == null)
+            {
+                Console.WriteLine("Commit service not initialized.");
+                return;
+            }
             bool isModified = File.Exists(HeadFilePath) ? _commitService.IsFileModified(entry.RelativePath, entry.BlobHash) : false;
             Blob? trackedFile = fs.trackedFiles.Find(f => Path.GetRelativePath(Directory.GetCurrentDirectory(), f.FilePath) == entry.RelativePath);
             if (trackedFile != null)
@@ -37,16 +74,58 @@ public class VersionService
                 }
                 else
                 {
-                    trackedFile.Status = FileStatusEnum.staged;
+                    trackedFile.Status = CheckIfStaged(entry);
                 }
+            } else
+            {
+                fs.trackedFiles.Add(new Blob
+                {
+                    FilePath = Path.Combine(Directory.GetCurrentDirectory(), entry.RelativePath),
+                    Hash = entry.BlobHash,
+                    Status = FileStatusEnum.deleted
+                });
             }
         }
     }
 
+    public FileStatusEnum CheckIfStaged(IndexEntry entry)
+    {
+        if (_commitService == null)
+        {
+            Console.WriteLine("Commit service not initialized.");
+            return FileStatusEnum.untracked;
+        }
+        if (_treeService == null)
+        {
+            Console.WriteLine("Tree service not initialized.");
+            return FileStatusEnum.untracked;
+        }
+
+        if(string.IsNullOrEmpty(File.ReadAllText(HeadFilePath)))
+        {
+            return FileStatusEnum.staged;
+        }
+        
+        Tree previousCommitTree = _treeService.LoadTree(_commitService.LoadCommit(File.ReadAllText(HeadFilePath)).TreeHash);
+        Blob? previousBlob = previousCommitTree.Blobs.Find(b => b.FilePath == entry.RelativePath);
+        if (previousBlob != null && previousBlob.Hash == entry.BlobHash)
+        {
+            return FileStatusEnum.commited;
+        } else
+        {
+            return FileStatusEnum.staged;
+        }
+        
+    }
+
     public static void DisplayVersionState(FileService fs)
     {
-         _ = fs.trackedFiles.OrderBy(f => f.Status).ThenBy(f => f.FileName).ToList();
-        foreach(Blob file in fs.trackedFiles)
+        if(fs.trackedFiles.FindAll(t => t.Status != FileStatusEnum.commited).Count == 0)
+        {
+            Console.WriteLine("No changes to display. All files are committed.");
+            return;
+        }
+        foreach(Blob file in fs.trackedFiles.OrderBy(f => f.Status).ThenBy(f => f.FileName))
         {
             switch(file.Status)
             {
@@ -59,11 +138,72 @@ public class VersionService
                 case FileStatusEnum.modified:
                     Console.ForegroundColor = ConsoleColor.Yellow;
                     break;
+                case FileStatusEnum.deleted:
+                    Console.ForegroundColor = ConsoleColor.Magenta;
+                    break;
             }
-            Console.WriteLine($"{file.FileName} - {file.Status}");
+
+            if(file.Status == FileStatusEnum.deleted)
+            {
+                IndexEntry? entry = _indexService?.GetEntries()
+                .ToList()
+                .Find(e => e.RelativePath == Path.GetRelativePath(Directory.GetCurrentDirectory(), file.FilePath));
+
+                if(entry != null && entry.Status == FileStatusEnum.deleted)
+                {
+                    Console.WriteLine($"{Path.GetRelativePath(Directory.GetCurrentDirectory(), file.FilePath)} - {file.Status} (previously committed)");
+                }
+                else
+                {
+                    Console.WriteLine($"{Path.GetRelativePath(Directory.GetCurrentDirectory(), file.FilePath)} - {file.Status}");
+                }
+            }
+             else if(file.Status != FileStatusEnum.commited)
+            {
+                Console.WriteLine($"{Path.GetRelativePath(Directory.GetCurrentDirectory(), file.FilePath)} - {file.Status}");
+            }
+        }
+        Console.ResetColor();
+    }
+
+    public static void DisplayVersionHistory()
+    {
+        string lastCommitHash = File.ReadAllText(HeadFilePath);
+
+        if(string.IsNullOrEmpty(lastCommitHash))
+        {
+            Console.WriteLine("No commits found.");
+            return;
+        } else
+        {
+            DisplayVersionHistoryRecursive(lastCommitHash);
+        }
+    }
+
+    public static void DisplayVersionHistoryRecursive(string commitHash, int indentLevel = 0)
+    {
+        if (_commitService == null)
+        {
+            Console.WriteLine("Commit service not initialized.");
+            return;
         }
 
-        Console.ResetColor();
+        if(string.IsNullOrEmpty(commitHash))
+        {
+            return;
+        }
+
+        Commit? commit = _commitService.LoadCommit(commitHash);
+        if (commit == null)
+        {
+            Console.WriteLine("Invalid commit hash in history.");
+            return;
+        }
+
+        Console.WriteLine($"- {commit.Timestamp:yyyy-MM-dd HH:mm:ss} {commit.Message} ({commit.Hash})");
+
+        DisplayVersionHistoryRecursive(commit.ParentHash, indentLevel + 1);
+        
     }
     
 }

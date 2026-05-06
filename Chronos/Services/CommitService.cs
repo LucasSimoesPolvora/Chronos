@@ -15,8 +15,9 @@ public class CommitService
         {
             Hash = "",
             Message = message,
-            Timestamp = DateTime.UtcNow,
+            Timestamp = DateTime.Now,
             TreeHash = tree.Hash,
+            ParentHash = File.Exists(Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "HEAD")) ? File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "HEAD")) : string.Empty,
             FileType = (FileStatusEnum)FileTypeEnum.Commit
         };
         
@@ -66,16 +67,10 @@ public class CommitService
             writer.Write(MAGIC_NUMBER);
             writer.Write((byte)commit.FileType);
             
-            writer.Write((ushort)commit.Hash.Length);
             writer.Write(commit.Hash);
-            
-            writer.Write((ushort)commit.Message.Length);
             writer.Write(commit.Message);
-            
-            writer.Write((ushort)commit.TreeHash.Length);
             writer.Write(commit.TreeHash);
-            
-            // Write timestamp
+            writer.Write(commit.ParentHash ?? "");
             writer.Write(commit.Timestamp.Ticks);
 
             return ms.ToArray();
@@ -96,4 +91,48 @@ public class CommitService
             return currentHash != indexBlobHash;
         }
     }
+
+    public Commit LoadCommit(string commitHash)
+    {
+        string commitPath = Path.Combine(ObjectsPath, commitHash[..2], commitHash[2..]);
+        if (!File.Exists(commitPath))
+            throw new FileNotFoundException($"Commit {commitHash} not found.");
+
+        byte[] content = File.ReadAllBytes(commitPath);
+        return FromBinary(content);
+    }
+
+    public Commit FromBinary(byte[] data)
+    {
+        using (var ms = new MemoryStream(data))
+        using (var reader = new BinaryReader(ms))
+        {
+            uint magic = reader.ReadUInt32();
+            if (magic != MAGIC_NUMBER)
+                throw new InvalidDataException("Invalid commit object.");
+
+            FileTypeEnum fileType = (FileTypeEnum)reader.ReadByte();
+            if (fileType != FileTypeEnum.Commit)
+                throw new InvalidDataException("Data is not a commit object.");
+
+            string hash = reader.ReadString();
+            string message = reader.ReadString();
+            string treeHash = reader.ReadString();
+            string parentHash = reader.ReadString();
+            long timestampTicks = reader.ReadInt64();
+            
+            DateTime timestamp = new(timestampTicks, DateTimeKind.Utc);
+
+            return new Commit
+            {
+                Hash = hash,
+                Message = message,
+                TreeHash = treeHash,
+                Timestamp = timestamp,
+                ParentHash = parentHash,
+                FileType = (FileStatusEnum)fileType
+            };
+        }
+    }
+
 }

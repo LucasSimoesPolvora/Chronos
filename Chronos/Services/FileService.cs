@@ -9,6 +9,7 @@ public class FileService
     public FileService()
     {
         _indexService = new IndexService();
+        _indexService.LoadIndex();
     }
 
     public void GetFiles(string path, FileService fs)
@@ -79,7 +80,6 @@ public class FileService
         {
             writer.Write(VersionService.MAGIC_NUMBER);
             writer.Write((byte)type);
-            writer.Write((ushort)content.Length);
             writer.Write(content);
 
             return ms.ToArray();
@@ -90,13 +90,16 @@ public class FileService
     public void AddToStaging(string pattern)
     {
         string normalizedPattern = Path.GetFullPath(pattern);
+        trackedFiles.Clear();
         GetFiles(Directory.GetCurrentDirectory(), this);
+        VersionService vs = new();
+        vs.GetVersionState(this);
         
         List<Blob> filesToStage = [];
 
         if (pattern == ".")
         {
-            filesToStage = trackedFiles;
+            filesToStage = [.. trackedFiles.Where(t => t.Status != FileStatusEnum.staged)];
         }
         else if (pattern.Contains('*'))
         {
@@ -125,9 +128,27 @@ public class FileService
         }
         else
         {
-            Console.WriteLine($"Pattern '{pattern}' does not match any files, directories, or valid pattern.");
-            return;
+            IndexEntry? entry = _indexService.GetEntries().FirstOrDefault(e => e.RelativePath == Path.GetRelativePath(Directory.GetCurrentDirectory(), normalizedPattern));
+            if(entry == null)
+            {
+                Console.WriteLine($"Pattern '{pattern}' does not match any files, directories, or valid pattern.");
+                return;
+            } else {
+                if(entry.Status != FileStatusEnum.deleted)
+                {
+                    filesToStage.Add(new Blob 
+                    { 
+                        FilePath = normalizedPattern,
+                        Hash = entry.BlobHash,
+                        Status = FileStatusEnum.deleted 
+                    });    
+                }
+            }
         }
+
+        filesToStage = [.. filesToStage.Where(f =>
+            trackedFiles.Find(t => t.FilePath == f.FilePath)?.Status != FileStatusEnum.staged
+        )];
 
         if (filesToStage.Count > 0)
         {
@@ -135,14 +156,20 @@ public class FileService
             {
                 try
                 {
+                    if(file.Status == FileStatusEnum.deleted)
+                    {
+                        _indexService.MarkEntryDeleted(Path.GetRelativePath(Directory.GetCurrentDirectory(), file.FilePath));
+                    }
+                    else
+                    {
+                        string blobHash = CalculateFileHash(file.FilePath);
 
-                    string blobHash = CalculateFileHash(file.FilePath);
-
-                    SaveBlob(file.FilePath, blobHash);
+                        SaveBlob(file.FilePath, blobHash);
                     
-                    string projectRoot = Directory.GetCurrentDirectory();
-                    string relativePath = Path.GetRelativePath(projectRoot, file.FilePath);
-                    _indexService.AddOrUpdateEntry(relativePath, blobHash);
+                        string projectRoot = Directory.GetCurrentDirectory();
+                        string relativePath = Path.GetRelativePath(projectRoot, file.FilePath);
+                        _indexService.AddOrUpdateEntry(relativePath, blobHash);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -156,7 +183,7 @@ public class FileService
         }
         else
         {
-            Console.WriteLine($"No files staged.");
+            Console.WriteLine($"No files staged. They either do not exist, are already staged, or do not match the pattern '{pattern}'.");
         }
     }
 
