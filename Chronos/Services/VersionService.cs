@@ -104,8 +104,7 @@ public class VersionService
 
     public static void DisplayVersionState(FileService fs)
     {
-         _ = fs.trackedFiles.OrderBy(f => f.Status).ThenBy(f => f.FileName).ToList();
-        foreach(Blob file in fs.trackedFiles)
+        foreach(Blob file in fs.trackedFiles.OrderBy(f => f.Status).ThenBy(f => f.FileName))
         {
             switch(file.Status)
             {
