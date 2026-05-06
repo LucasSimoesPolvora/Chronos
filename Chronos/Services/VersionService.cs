@@ -28,7 +28,7 @@ public class VersionService
 
         if(!CheckIfFilesStaged(new FileService()))
         {
-            Console.WriteLine("Cannot commit. No files staged.");
+            Console.WriteLine("Cannot commit. No files added.");
             return;
         }
 
@@ -46,7 +46,7 @@ public class VersionService
 
         bool hasDeletedStaged = _indexService?.GetEntries().ToList().Any(e => e.Status == FileStatusEnum.deleted) ?? false;
 
-        return fs.trackedFiles.Any(f => f.Status == FileStatusEnum.staged) || hasDeletedStaged;
+        return fs.trackedFiles.Any(f => f.Status == FileStatusEnum.added) || hasDeletedStaged;
     }
 
     public void GetVersionState(FileService fs)
@@ -104,7 +104,7 @@ public class VersionService
 
         if(string.IsNullOrEmpty(File.ReadAllText(HeadFilePath)))
         {
-            return FileStatusEnum.staged;
+            return FileStatusEnum.added;
         }
         
         Tree previousCommitTree = _treeService.LoadTree(_commitService.LoadCommit(File.ReadAllText(HeadFilePath)).TreeHash);
@@ -114,7 +114,7 @@ public class VersionService
             return FileStatusEnum.commited;
         } else
         {
-            return FileStatusEnum.staged;
+            return FileStatusEnum.added;
         }
         
     }
@@ -133,7 +133,7 @@ public class VersionService
                 case FileStatusEnum.untracked:
                     Console.ForegroundColor = ConsoleColor.Red;
                     break;
-                case FileStatusEnum.staged:
+                case FileStatusEnum.added:
                     Console.ForegroundColor = ConsoleColor.Green;
                     break;
                 case FileStatusEnum.modified:

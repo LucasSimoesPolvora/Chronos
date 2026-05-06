@@ -99,7 +99,7 @@ public class FileService
 
         if (pattern == ".")
         {
-            filesToStage = [.. trackedFiles.Where(t => t.Status != FileStatusEnum.staged)];
+            filesToStage = [.. trackedFiles.Where(t => t.Status != FileStatusEnum.added)];
         }
         else if (pattern.Contains('*'))
         {
@@ -147,7 +147,7 @@ public class FileService
         }
 
         filesToStage = [.. filesToStage.Where(f =>
-            trackedFiles.Find(t => t.FilePath == f.FilePath)?.Status != FileStatusEnum.staged && trackedFiles.Find(t => t.FilePath == f.FilePath)?.Status != FileStatusEnum.commited
+            trackedFiles.Find(t => t.FilePath == f.FilePath)?.Status != FileStatusEnum.added && trackedFiles.Find(t => t.FilePath == f.FilePath)?.Status != FileStatusEnum.commited
         )];
 
         if (filesToStage.Count > 0)
@@ -179,11 +179,11 @@ public class FileService
 
             _indexService.SaveIndex();   
 
-            Console.WriteLine($"{filesToStage.Count} file(s) added to staging.");
+            Console.WriteLine($"{filesToStage.Count} file(s) added.");
         }
         else
         {
-            Console.WriteLine($"No files staged. They either do not exist, are already staged, or do not match the pattern '{pattern}'.");
+            Console.WriteLine($"No files added. They either do not exist, are already added, or do not match the pattern '{pattern}'.");
         }
     }
 
