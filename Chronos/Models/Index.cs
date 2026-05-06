@@ -6,7 +6,7 @@ public class IndexEntry
 
     public required string BlobHash { get; set; }
 
-    public FileStatusEnum Status { get; set; }
+    public FileStatusEnum Status { get; set; }  
 }
 
 public class Index

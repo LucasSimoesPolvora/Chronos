@@ -36,6 +36,7 @@ public class VersionService
 
         File.WriteAllText(HeadFilePath, commit.Hash);
         _indexService?.ClearIndex();
+        _indexService?.SaveIndex();
         _commitService.SaveCommit(commit);
     }
 
