@@ -1,6 +1,6 @@
 public class VersionService
 {
-    private readonly IndexService _indexService;
+    private readonly static IndexService? _indexService;
     private readonly static CommitService? _commitService;
     private readonly static TreeService? _treeService;
     public const uint MAGIC_NUMBER = 0x4348524F;
@@ -10,12 +10,12 @@ public class VersionService
     {
         _commitService = new CommitService();
         _treeService = new TreeService();
+        _indexService = new IndexService();
     }
 
     public VersionService()
     {
-        _indexService = new IndexService();
-        _indexService.LoadIndex();
+        _indexService?.LoadIndex();
     }
 
     public void CommitVersion(string message)
@@ -35,20 +35,28 @@ public class VersionService
         Commit commit = _commitService.CreateProjectCommit(message);
 
         File.WriteAllText(HeadFilePath, commit.Hash);
+        _indexService?.ClearIndex();
         _commitService.SaveCommit(commit);
     }
 
     public bool CheckIfFilesStaged(FileService fs)
     {
         GetVersionState(fs);
-        return fs.trackedFiles.Any(f => f.Status == FileStatusEnum.staged);
+
+        bool hasDeletedStaged = _indexService?.GetEntries().ToList().Any(e => e.Status == FileStatusEnum.deleted) ?? false;
+
+        return fs.trackedFiles.Any(f => f.Status == FileStatusEnum.staged) || hasDeletedStaged;
     }
 
     public void GetVersionState(FileService fs)
     {
         fs.GetFiles(Directory.GetCurrentDirectory(), fs);
-        IndexEntry[] entries = _indexService.GetEntries();
+        IndexEntry[]? entries = _indexService?.GetEntries();
 
+        if(entries == null)
+        {
+            return;
+        }
         foreach(IndexEntry entry in entries)
         {
             if(_commitService == null)
@@ -112,6 +120,11 @@ public class VersionService
 
     public static void DisplayVersionState(FileService fs)
     {
+        if(fs.trackedFiles.FindAll(t => t.Status != FileStatusEnum.commited).Count == 0)
+        {
+            Console.WriteLine("No changes to display. All files are committed.");
+            return;
+        }
         foreach(Blob file in fs.trackedFiles.OrderBy(f => f.Status).ThenBy(f => f.FileName))
         {
             switch(file.Status)

@@ -5,6 +5,8 @@ public class IndexEntry
     public required string RelativePath { get; set; }
 
     public required string BlobHash { get; set; }
+
+    public FileStatusEnum Status { get; set; }
 }
 
 public class Index
@@ -51,5 +53,19 @@ public class Index
     {
         JsonContext context = new();
         return JsonSerializer.Deserialize(json, context.Index) ?? new Index();
+    }
+
+    public void MarkEntryDeleted(string relativePath)
+    {
+        IndexEntry? existing = GetEntry(relativePath);
+        if (existing != null)
+        {
+            existing.Status = FileStatusEnum.deleted;
+        }
+    }
+
+    public void ClearIndex()
+    {
+        Entries.RemoveAll(e => e.Status == FileStatusEnum.deleted);
     }
 }

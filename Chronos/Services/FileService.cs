@@ -128,8 +128,22 @@ public class FileService
         }
         else
         {
-            Console.WriteLine($"Pattern '{pattern}' does not match any files, directories, or valid pattern.");
-            return;
+            IndexEntry? entry = _indexService.GetEntries().FirstOrDefault(e => e.RelativePath == Path.GetRelativePath(Directory.GetCurrentDirectory(), normalizedPattern));
+            if(entry == null)
+            {
+                Console.WriteLine($"Pattern '{pattern}' does not match any files, directories, or valid pattern.");
+                return;
+            } else {
+                if(entry.Status != FileStatusEnum.deleted)
+                {
+                    filesToStage.Add(new Blob 
+                    { 
+                        FilePath = normalizedPattern,
+                        Hash = entry.BlobHash,
+                        Status = FileStatusEnum.deleted 
+                    });    
+                }
+            }
         }
 
         filesToStage = [.. filesToStage.Where(f =>
@@ -142,13 +156,20 @@ public class FileService
             {
                 try
                 {
-                    string blobHash = CalculateFileHash(file.FilePath);
+                    if(file.Status == FileStatusEnum.deleted)
+                    {
+                        _indexService.MarkEntryDeleted(Path.GetRelativePath(Directory.GetCurrentDirectory(), file.FilePath));
+                    }
+                    else
+                    {
+                        string blobHash = CalculateFileHash(file.FilePath);
 
-                    SaveBlob(file.FilePath, blobHash);
+                        SaveBlob(file.FilePath, blobHash);
                     
-                    string projectRoot = Directory.GetCurrentDirectory();
-                    string relativePath = Path.GetRelativePath(projectRoot, file.FilePath);
-                    _indexService.AddOrUpdateEntry(relativePath, blobHash);
+                        string projectRoot = Directory.GetCurrentDirectory();
+                        string relativePath = Path.GetRelativePath(projectRoot, file.FilePath);
+                        _indexService.AddOrUpdateEntry(relativePath, blobHash);
+                    }
                 }
                 catch (Exception ex)
                 {
