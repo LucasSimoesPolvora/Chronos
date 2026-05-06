@@ -147,7 +147,7 @@ public class FileService
         }
 
         filesToStage = [.. filesToStage.Where(f =>
-            trackedFiles.Find(t => t.FilePath == f.FilePath)?.Status != FileStatusEnum.staged
+            trackedFiles.Find(t => t.FilePath == f.FilePath)?.Status != FileStatusEnum.staged && trackedFiles.Find(t => t.FilePath == f.FilePath)?.Status != FileStatusEnum.commited
         )];
 
         if (filesToStage.Count > 0)
