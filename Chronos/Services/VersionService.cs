@@ -25,10 +25,23 @@ public class VersionService
             Console.WriteLine("Commit service not initialized.");
             return;
         }
+
+        if(!CheckIfFilesStaged(new FileService()))
+        {
+            Console.WriteLine("Cannot commit. No files staged.");
+            return;
+        }
+
         Commit commit = _commitService.CreateProjectCommit(message);
 
         File.WriteAllText(HeadFilePath, commit.Hash);
         _commitService.SaveCommit(commit);
+    }
+
+    public bool CheckIfFilesStaged(FileService fs)
+    {
+        GetVersionState(fs);
+        return fs.trackedFiles.Any(f => f.Status == FileStatusEnum.staged);
     }
 
     public void GetVersionState(FileService fs)
