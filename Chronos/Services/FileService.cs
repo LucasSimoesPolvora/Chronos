@@ -9,6 +9,7 @@ public class FileService
     public FileService()
     {
         _indexService = new IndexService();
+        _indexService.LoadIndex();
     }
 
     public void GetFiles(string path, FileService fs)
@@ -89,13 +90,16 @@ public class FileService
     public void AddToStaging(string pattern)
     {
         string normalizedPattern = Path.GetFullPath(pattern);
+        trackedFiles.Clear();
         GetFiles(Directory.GetCurrentDirectory(), this);
+        VersionService vs = new();
+        vs.GetVersionState(this);
         
         List<Blob> filesToStage = [];
 
         if (pattern == ".")
         {
-            filesToStage = trackedFiles;
+            filesToStage = [.. trackedFiles.Where(t => t.Status != FileStatusEnum.staged)];
         }
         else if (pattern.Contains('*'))
         {
@@ -128,13 +132,16 @@ public class FileService
             return;
         }
 
+        filesToStage = [.. filesToStage.Where(f =>
+            trackedFiles.Find(t => t.FilePath == f.FilePath)?.Status != FileStatusEnum.staged
+        )];
+
         if (filesToStage.Count > 0)
         {
             foreach (Blob file in filesToStage)
             {
                 try
                 {
-
                     string blobHash = CalculateFileHash(file.FilePath);
 
                     SaveBlob(file.FilePath, blobHash);
@@ -155,7 +162,7 @@ public class FileService
         }
         else
         {
-            Console.WriteLine($"No files staged.");
+            Console.WriteLine($"No files staged. They either do not exist, are already staged, or do not match the pattern '{pattern}'.");
         }
     }
 
