@@ -143,7 +143,22 @@ public class VersionService
                     break;
             }
 
-            if(file.Status != FileStatusEnum.commited)
+            if(file.Status == FileStatusEnum.deleted)
+            {
+                IndexEntry? entry = _indexService?.GetEntries()
+                .ToList()
+                .Find(e => e.RelativePath == Path.GetRelativePath(Directory.GetCurrentDirectory(), file.FilePath));
+
+                if(entry != null && entry.Status == FileStatusEnum.deleted)
+                {
+                    Console.WriteLine($"{Path.GetRelativePath(Directory.GetCurrentDirectory(), file.FilePath)} - {file.Status} (previously committed)");
+                }
+                else
+                {
+                    Console.WriteLine($"{Path.GetRelativePath(Directory.GetCurrentDirectory(), file.FilePath)} - {file.Status}");
+                }
+            }
+             else if(file.Status != FileStatusEnum.commited)
             {
                 Console.WriteLine($"{Path.GetRelativePath(Directory.GetCurrentDirectory(), file.FilePath)} - {file.Status}");
             }
