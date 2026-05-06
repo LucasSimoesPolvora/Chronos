@@ -62,6 +62,7 @@ void HandleCommit()
     }
     else
     {
+        Console.WriteLine("No commit message provided. Using default message.");
         vs.CommitVersion("No commit message");
     }
 }
