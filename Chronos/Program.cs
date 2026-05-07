@@ -41,7 +41,7 @@ switch (command)
         VersionService.DisplayVersionState(fs);
         break;
     case "checkout":
-        Console.WriteLine("Checkout command not implemented yet.");
+        HandleCheckout();
         break;
     case "-h":
     case "--help":

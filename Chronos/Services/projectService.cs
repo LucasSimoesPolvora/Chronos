@@ -21,6 +21,8 @@ public class ProjectService
 
         dir.CreateSubdirectory("objects");
         File.Create(Path.Combine(projectPath, "HEAD")).Close();
+        File.Create(Path.Combine(projectPath, "status")).Close();
+        File.WriteAllText(Path.Combine(projectPath, "status"), HeadStatus.attached.ToString());
         Console.WriteLine("Project initialized successfully.");   
     }
 

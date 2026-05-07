@@ -1,3 +1,5 @@
+using System.Text;
+
 public class VersionService
 {
     private readonly static IndexService? _indexService;
@@ -107,7 +109,7 @@ public class VersionService
             return FileStatusEnum.added;
         }
         
-        Tree previousCommitTree = _treeService.LoadTree(_commitService.LoadCommit(File.ReadAllText(HeadFilePath)).TreeHash);
+        Tree? previousCommitTree = _treeService.LoadTree(_commitService.LoadCommit(File.ReadAllText(HeadFilePath)).TreeHash);
         Blob? previousBlob = previousCommitTree.Blobs.Find(b => b.FilePath == entry.RelativePath);
         if (previousBlob != null && previousBlob.Hash == entry.BlobHash)
         {
@@ -204,7 +206,61 @@ public class VersionService
         Console.WriteLine($"- {commit.Timestamp:yyyy-MM-dd HH:mm:ss} {commit.Message} ({commit.Hash})");
 
         DisplayVersionHistoryRecursive(commit.ParentHash, indentLevel + 1);
-        
     }
-    
+
+    public void CheckoutVersion(string commitHash)
+    {
+        if (_commitService == null)
+        {
+            Console.WriteLine("Commit service not initialized.");
+            return;
+        }
+        FileService fs = new();
+        GetVersionState(fs);
+
+        string headStatusPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "status");
+
+        string headStatus = File.ReadAllText(headStatusPath);
+        if(headStatus == HeadStatus.detached.ToString())
+        {
+            Console.WriteLine("Cannot checkout. HEAD is currently detached. Please attach HEAD to the last committed version before checking out another version.");
+            return;
+        }
+
+        if(fs.trackedFiles.Any(f => f.Status == FileStatusEnum.modified || f.Status == FileStatusEnum.added || f.Status == FileStatusEnum.deleted))
+        {
+            Console.WriteLine("Cannot checkout. You have uncommitted changes. Please commit your changes before checking out another version.");
+            return;
+        }
+
+        Commit? commit = _commitService.LoadCommit(commitHash);
+        if (commit == null)
+        {
+            Console.WriteLine("Invalid commit hash.");
+            return;
+        }
+
+        Tree? tree = _treeService?.LoadTree(commit.TreeHash);
+        if (tree == null)        {
+            Console.WriteLine("Tree associated with the commit not found.");
+            return;
+        }
+
+        foreach (Blob blob in tree.Blobs)
+        {
+            string filePath = blob.FilePath;
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+
+            string content = fs.LoadBlob(blob.Hash);
+            Console.WriteLine($"Checking out file: {filePath}");
+            Directory.CreateDirectory(Path.GetDirectoryName(filePath) ?? ".");
+            File.WriteAllBytes(filePath, Encoding.UTF8.GetBytes(content));
+        }
+
+        File.WriteAllText(headStatusPath, HeadStatus.detached.ToString());
+        File.WriteAllText(HeadFilePath, commitHash);
+    }
 }

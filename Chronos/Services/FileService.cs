@@ -84,7 +84,32 @@ public class FileService
 
             return ms.ToArray();
         }
+    }
 
+    public string LoadBlob(string treeHash)
+    {
+        string treePath = Path.Combine(ObjectsPath, treeHash[..2], treeHash[2..]);
+        if (!File.Exists(treePath))
+            throw new FileNotFoundException($"Tree {treeHash} not found.");
+        byte[] content = File.ReadAllBytes(treePath);
+        return FromBinary(content);
+    }
+
+    private static string FromBinary(byte[] data)
+    {
+        using (var ms = new MemoryStream(data))
+        using (var reader = new BinaryReader(ms))
+        {
+            uint magic = reader.ReadUInt32();
+            if (magic != VersionService.MAGIC_NUMBER)
+                throw new InvalidDataException("Invalid blob format.");
+
+            FileTypeEnum type = (FileTypeEnum)reader.ReadByte();
+            if (type != FileTypeEnum.Blob)
+                throw new InvalidDataException("Data is not a blob.");
+
+            return reader.ReadString();;
+        }
     }
 
     public void AddToStaging(string pattern)
