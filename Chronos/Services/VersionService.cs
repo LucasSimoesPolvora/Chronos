@@ -248,15 +248,18 @@ public class VersionService
 
         foreach (Blob blob in tree.Blobs)
         {
-            string filePath = blob.FilePath;
+            string filePath = Path.Combine(Directory.GetCurrentDirectory(), blob.FilePath);
             if (File.Exists(filePath))
             {
                 File.Delete(filePath);
             }
 
             string content = fs.LoadBlob(blob.Hash);
-            Console.WriteLine($"Checking out file: {filePath}");
-            Directory.CreateDirectory(Path.GetDirectoryName(filePath) ?? ".");
+            string? directoryPath = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(directoryPath))
+            {
+                Directory.CreateDirectory(directoryPath);
+            }
             File.WriteAllBytes(filePath, Encoding.UTF8.GetBytes(content));
         }
 
