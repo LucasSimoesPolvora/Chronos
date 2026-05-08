@@ -275,12 +275,15 @@ public class VersionService
             Console.WriteLine("Already on the specified commit.");
             return;
         }
-
-        if(fs.trackedFiles.Any(f => f.Status == FileStatusEnum.modified || f.Status == FileStatusEnum.added || f.Status == FileStatusEnum.deleted))
+        if(headStatus == HeadStatus.attached.ToString())
         {
-            Console.WriteLine("Cannot checkout. You have uncommitted changes. Please commit your changes before checking out another version.");
-            return;
+            if(fs.trackedFiles.Any(f => f.Status == FileStatusEnum.modified || f.Status == FileStatusEnum.added || f.Status == FileStatusEnum.deleted))
+            {
+                Console.WriteLine("Cannot checkout. You have uncommitted changes. Please commit your changes before checking out another version.");
+                return;
+            }
         }
+        
 
         Commit? commit = _commitService.LoadCommit(commitHash);
         if (commit == null)
@@ -295,6 +298,7 @@ public class VersionService
             return;
         }
 
+        ProjectService.DeleteAllFilesInDirectory(Directory.GetCurrentDirectory());
         foreach (Blob blob in tree.Blobs)
         {
             string filePath = Path.Combine(Directory.GetCurrentDirectory(), blob.FilePath);
