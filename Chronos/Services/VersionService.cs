@@ -269,11 +269,6 @@ public class VersionService
         string headStatusPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "status");
 
         string headStatus = File.ReadAllText(headStatusPath);
-        if(headStatus == HeadStatus.detached.ToString())
-        {
-            Console.WriteLine("Cannot checkout. HEAD is currently detached. Please attach HEAD to the last committed version before checking out another version.");
-            return;
-        }
 
         if(fs.trackedFiles.Any(f => f.Status == FileStatusEnum.modified || f.Status == FileStatusEnum.added || f.Status == FileStatusEnum.deleted))
         {
@@ -289,7 +284,7 @@ public class VersionService
         }
 
         Tree? tree = _treeService?.LoadTree(commit.TreeHash);
-        if (tree == null)        {
+        if (tree == null){
             Console.WriteLine("Tree associated with the commit not found.");
             return;
         }
