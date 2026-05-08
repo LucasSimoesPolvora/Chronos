@@ -270,6 +270,12 @@ public class VersionService
 
         string headStatus = File.ReadAllText(headStatusPath);
 
+        if(File.ReadAllText(HeadFilePath) == commitHash)
+        {
+            Console.WriteLine("Already on the specified commit.");
+            return;
+        }
+
         if(fs.trackedFiles.Any(f => f.Status == FileStatusEnum.modified || f.Status == FileStatusEnum.added || f.Status == FileStatusEnum.deleted))
         {
             Console.WriteLine("Cannot checkout. You have uncommitted changes. Please commit your changes before checking out another version.");
