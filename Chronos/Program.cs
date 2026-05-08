@@ -59,6 +59,7 @@ switch (command)
         if(isDetached)
         {
             Console.WriteLine("Cannot commit. HEAD is currently detached. Please attach HEAD to the last committed version before committing.");
+            Console.WriteLine("Cannot check the status. HEAD is currently detached. Please attach HEAD to the last committed version before checking status.");
             return 1;
         }
         vs.GetVersionState(fs);
