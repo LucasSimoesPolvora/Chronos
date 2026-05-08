@@ -171,16 +171,21 @@ public class VersionService
 
     public static void DisplayVersionHistory()
     {
-        string lastCommitHash = File.ReadAllText(HeadFilePath);
-
-        if(string.IsNullOrEmpty(lastCommitHash))
+        if(File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "status")) == HeadStatus.attached.ToString())
         {
-            Console.WriteLine("No commits found.");
-            return;
+            string lastCommitHash = File.ReadAllText(HeadFilePath);
+            if(string.IsNullOrEmpty(lastCommitHash))
+                {
+                    Console.WriteLine("No commits found.");
+                    return;
+            } else
+            {
+                DisplayVersionHistoryRecursive(lastCommitHash);
+            }
         } else
         {
-            DisplayVersionHistoryRecursive(lastCommitHash);
-        }
+            FindCommitsInObjects();
+        }   
     }
 
     public static void DisplayVersionHistoryRecursive(string commitHash, int indentLevel = 0)
@@ -206,6 +211,49 @@ public class VersionService
         Console.WriteLine($"- {commit.Timestamp:yyyy-MM-dd HH:mm:ss} {commit.Message} ({commit.Hash})");
 
         DisplayVersionHistoryRecursive(commit.ParentHash, indentLevel + 1);
+    }
+
+    public static void FindCommitsInObjects()
+    {
+        if (_commitService == null)
+        {
+            Console.WriteLine("Commit service not initialized.");
+            return;
+        }
+
+        string objectsPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "objects");
+        if (!Directory.Exists(objectsPath))
+        {
+            Console.WriteLine("Objects directory not found.");
+            return;
+        }
+
+        string[] objectFiles = Directory.GetFiles(objectsPath, "*", SearchOption.AllDirectories);
+        List<Commit> commits = [];
+
+        foreach (string file in objectFiles)
+        {
+            using var ms = new MemoryStream(File.ReadAllBytes(file));
+            using var reader = new BinaryReader(ms);
+            uint magic = reader.ReadUInt32();
+            if (magic != MAGIC_NUMBER)
+                throw new InvalidDataException("Invalid commit object.");
+
+            FileTypeEnum fileType = (FileTypeEnum)reader.ReadByte();
+            if (fileType == FileTypeEnum.Commit)
+                commits.Add(_commitService.FromBinary(File.ReadAllBytes(file)));
+        }
+
+        if (commits.Count == 0)
+        {
+            Console.WriteLine("No commits found in objects.");
+            return;
+        }
+
+        foreach (Commit commit in commits.OrderByDescending(c => c.Timestamp))
+        {
+            Console.WriteLine($"- {commit.Timestamp:yyyy-MM-dd HH:mm:ss} {commit.Message} ({commit.Hash})");
+        }
     }
 
     public void CheckoutVersion(string commitHash)
