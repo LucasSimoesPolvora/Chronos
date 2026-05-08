@@ -7,6 +7,7 @@ public class VersionService
     private readonly static TreeService? _treeService;
     public const uint MAGIC_NUMBER = 0x4348524F;
     private readonly static string HeadFilePath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "HEAD");
+    private List<Commit> commits = [];
 
     static VersionService()
     {
@@ -213,7 +214,7 @@ public class VersionService
         DisplayVersionHistoryRecursive(commit.ParentHash, indentLevel + 1);
     }
 
-    public static void FindCommitsInObjects()
+    public static void FindCommitsInObjects(bool display = true)
     {
         if (_commitService == null)
         {
@@ -252,8 +253,12 @@ public class VersionService
 
         foreach (Commit commit in commits.OrderByDescending(c => c.Timestamp))
         {
-            Console.WriteLine($"- {commit.Timestamp:yyyy-MM-dd HH:mm:ss} {commit.Message} ({commit.Hash})");
+            if(display)
+                Console.WriteLine($"- {commit.Timestamp:yyyy-MM-dd HH:mm:ss} {commit.Message} ({commit.Hash})");
+
+            commits.Add(commit);
         }
+        
     }
 
     public void CheckoutVersion(string commitHash)
@@ -316,7 +321,18 @@ public class VersionService
             File.WriteAllBytes(filePath, Encoding.UTF8.GetBytes(content));
         }
 
-        File.WriteAllText(headStatusPath, HeadStatus.detached.ToString());
+        FindCommitsInObjects(false);
+
+        if(commits.OrderByDescending(c => c.Timestamp).FirstOrDefault()?.Hash == commitHash)
+        {
+            Console.WriteLine("Checked out the latest commit. HEAD is now detached.");
+            File.WriteAllText(headStatusPath, HeadStatus.attached.ToString());
+        } else
+        {
+            Console.WriteLine($"Checked out commit {commitHash}. HEAD is now detached.");
+            File.WriteAllText(headStatusPath, HeadStatus.detached.ToString());
+        }
+
         File.WriteAllText(HeadFilePath, commitHash);
     }
 }
