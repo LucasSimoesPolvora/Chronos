@@ -34,14 +34,14 @@ public class TreeService
             {
                 string relativePath = Path.GetRelativePath(rootPath, file.FullName);
                 string hash = _fileService.CalculateFileHash(file.FullName);
-                
-                if(_fileService.trackedFiles.Find(f => f.FilePath == file.FullName)?.Status == FileStatusEnum.added)
+                FileStatusEnum? correspondence = _fileService.trackedFiles.Find(f => f.FilePath == file.FullName)?.Status;
+                if(correspondence == FileStatusEnum.added || correspondence == FileStatusEnum.commited)
                 {
                     tree.Blobs.Add(new Blob
                     {
                         FilePath = relativePath,
                         Hash = hash,
-                        Status = FileStatusEnum.untracked
+                        Status = correspondence.Value
                     });
                 }
                 
