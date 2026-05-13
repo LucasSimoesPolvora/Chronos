@@ -84,7 +84,32 @@ public class FileService
 
             return ms.ToArray();
         }
+    }
 
+    public string LoadBlob(string treeHash)
+    {
+        string treePath = Path.Combine(ObjectsPath, treeHash[..2], treeHash[2..]);
+        if (!File.Exists(treePath))
+            throw new FileNotFoundException($"Tree {treeHash} not found.");
+        byte[] content = File.ReadAllBytes(treePath);
+        return FromBinary(content);
+    }
+
+    private static string FromBinary(byte[] data)
+    {
+        using (var ms = new MemoryStream(data))
+        using (var reader = new BinaryReader(ms))
+        {
+            uint magic = reader.ReadUInt32();
+            if (magic != VersionService.MAGIC_NUMBER)
+                throw new InvalidDataException("Invalid blob format.");
+
+            FileTypeEnum type = (FileTypeEnum)reader.ReadByte();
+            if (type != FileTypeEnum.Blob)
+                throw new InvalidDataException("Data is not a blob.");
+
+            return reader.ReadString();;
+        }
     }
 
     public void AddToStaging(string pattern)
@@ -99,7 +124,7 @@ public class FileService
 
         if (pattern == ".")
         {
-            filesToStage = [.. trackedFiles.Where(t => t.Status != FileStatusEnum.staged)];
+            filesToStage = [.. trackedFiles.Where(t => t.Status != FileStatusEnum.added)];
         }
         else if (pattern.Contains('*'))
         {
@@ -147,7 +172,7 @@ public class FileService
         }
 
         filesToStage = [.. filesToStage.Where(f =>
-            trackedFiles.Find(t => t.FilePath == f.FilePath)?.Status != FileStatusEnum.staged
+            trackedFiles.Find(t => t.FilePath == f.FilePath)?.Status != FileStatusEnum.added && trackedFiles.Find(t => t.FilePath == f.FilePath)?.Status != FileStatusEnum.commited
         )];
 
         if (filesToStage.Count > 0)
@@ -179,11 +204,11 @@ public class FileService
 
             _indexService.SaveIndex();   
 
-            Console.WriteLine($"{filesToStage.Count} file(s) added to staging.");
+            Console.WriteLine($"{filesToStage.Count} file(s) added.");
         }
         else
         {
-            Console.WriteLine($"No files staged. They either do not exist, are already staged, or do not match the pattern '{pattern}'.");
+            Console.WriteLine($"No files added. They either do not exist, are already added, or do not match the pattern '{pattern}'.");
         }
     }
 

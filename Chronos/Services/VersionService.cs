@@ -1,3 +1,5 @@
+using System.Text;
+
 public class VersionService
 {
     private readonly static IndexService? _indexService;
@@ -5,6 +7,7 @@ public class VersionService
     private readonly static TreeService? _treeService;
     public const uint MAGIC_NUMBER = 0x4348524F;
     private readonly static string HeadFilePath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "HEAD");
+    private List<Commit> commits = [];
 
     static VersionService()
     {
@@ -28,7 +31,7 @@ public class VersionService
 
         if(!CheckIfFilesStaged(new FileService()))
         {
-            Console.WriteLine("Cannot commit. No files staged.");
+            Console.WriteLine("Cannot commit. No files added.");
             return;
         }
 
@@ -36,6 +39,7 @@ public class VersionService
 
         File.WriteAllText(HeadFilePath, commit.Hash);
         _indexService?.ClearIndex();
+        _indexService?.SaveIndex();
         _commitService.SaveCommit(commit);
     }
 
@@ -45,7 +49,7 @@ public class VersionService
 
         bool hasDeletedStaged = _indexService?.GetEntries().ToList().Any(e => e.Status == FileStatusEnum.deleted) ?? false;
 
-        return fs.trackedFiles.Any(f => f.Status == FileStatusEnum.staged) || hasDeletedStaged;
+        return fs.trackedFiles.Any(f => f.Status == FileStatusEnum.added) || hasDeletedStaged;
     }
 
     public void GetVersionState(FileService fs)
@@ -103,17 +107,17 @@ public class VersionService
 
         if(string.IsNullOrEmpty(File.ReadAllText(HeadFilePath)))
         {
-            return FileStatusEnum.staged;
+            return FileStatusEnum.added;
         }
         
-        Tree previousCommitTree = _treeService.LoadTree(_commitService.LoadCommit(File.ReadAllText(HeadFilePath)).TreeHash);
+        Tree? previousCommitTree = _treeService.LoadTree(_commitService.LoadCommit(File.ReadAllText(HeadFilePath)).TreeHash);
         Blob? previousBlob = previousCommitTree.Blobs.Find(b => b.FilePath == entry.RelativePath);
         if (previousBlob != null && previousBlob.Hash == entry.BlobHash)
         {
             return FileStatusEnum.commited;
         } else
         {
-            return FileStatusEnum.staged;
+            return FileStatusEnum.added;
         }
         
     }
@@ -132,7 +136,7 @@ public class VersionService
                 case FileStatusEnum.untracked:
                     Console.ForegroundColor = ConsoleColor.Red;
                     break;
-                case FileStatusEnum.staged:
+                case FileStatusEnum.added:
                     Console.ForegroundColor = ConsoleColor.Green;
                     break;
                 case FileStatusEnum.modified:
@@ -168,16 +172,21 @@ public class VersionService
 
     public static void DisplayVersionHistory()
     {
-        string lastCommitHash = File.ReadAllText(HeadFilePath);
-
-        if(string.IsNullOrEmpty(lastCommitHash))
+        if(File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "status")) == HeadStatus.attached.ToString())
         {
-            Console.WriteLine("No commits found.");
-            return;
+            string lastCommitHash = File.ReadAllText(HeadFilePath);
+            if(string.IsNullOrEmpty(lastCommitHash))
+                {
+                    Console.WriteLine("No commits found.");
+                    return;
+            } else
+            {
+                DisplayVersionHistoryRecursive(lastCommitHash);
+            }
         } else
         {
-            DisplayVersionHistoryRecursive(lastCommitHash);
-        }
+            FindCommitsInObjects();
+        }   
     }
 
     public static void DisplayVersionHistoryRecursive(string commitHash, int indentLevel = 0)
@@ -203,7 +212,127 @@ public class VersionService
         Console.WriteLine($"- {commit.Timestamp:yyyy-MM-dd HH:mm:ss} {commit.Message} ({commit.Hash})");
 
         DisplayVersionHistoryRecursive(commit.ParentHash, indentLevel + 1);
+    }
+
+    public static void FindCommitsInObjects(bool display = true)
+    {
+        if (_commitService == null)
+        {
+            Console.WriteLine("Commit service not initialized.");
+            return;
+        }
+
+        string objectsPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "objects");
+        if (!Directory.Exists(objectsPath))
+        {
+            Console.WriteLine("Objects directory not found.");
+            return;
+        }
+
+        string[] objectFiles = Directory.GetFiles(objectsPath, "*", SearchOption.AllDirectories);
+        List<Commit> commits = [];
+
+        foreach (string file in objectFiles)
+        {
+            using var ms = new MemoryStream(File.ReadAllBytes(file));
+            using var reader = new BinaryReader(ms);
+            uint magic = reader.ReadUInt32();
+            if (magic != MAGIC_NUMBER)
+                throw new InvalidDataException("Invalid commit object.");
+
+            FileTypeEnum fileType = (FileTypeEnum)reader.ReadByte();
+            if (fileType == FileTypeEnum.Commit)
+                commits.Add(_commitService.FromBinary(File.ReadAllBytes(file)));
+        }
+
+        if (commits.Count == 0)
+        {
+            Console.WriteLine("No commits found in objects.");
+            return;
+        }
+
+        foreach (Commit commit in commits.OrderByDescending(c => c.Timestamp))
+        {
+            if(display)
+                Console.WriteLine($"- {commit.Timestamp:yyyy-MM-dd HH:mm:ss} {commit.Message} ({commit.Hash})");
+
+            commits.Add(commit);
+        }
         
     }
-    
+
+    public void CheckoutVersion(string commitHash)
+    {
+        if (_commitService == null)
+        {
+            Console.WriteLine("Commit service not initialized.");
+            return;
+        }
+        FileService fs = new();
+        GetVersionState(fs);
+
+        string headStatusPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "status");
+
+        string headStatus = File.ReadAllText(headStatusPath);
+
+        if(File.ReadAllText(HeadFilePath) == commitHash)
+        {
+            Console.WriteLine("Already on the specified commit.");
+            return;
+        }
+        if(headStatus == HeadStatus.attached.ToString())
+        {
+            if(fs.trackedFiles.Any(f => f.Status == FileStatusEnum.modified || f.Status == FileStatusEnum.added || f.Status == FileStatusEnum.deleted))
+            {
+                Console.WriteLine("Cannot checkout. You have uncommitted changes. Please commit your changes before checking out another version.");
+                return;
+            }
+        }
+        
+
+        Commit? commit = _commitService.LoadCommit(commitHash);
+        if (commit == null)
+        {
+            Console.WriteLine("Invalid commit hash.");
+            return;
+        }
+
+        Tree? tree = _treeService?.LoadTree(commit.TreeHash);
+        if (tree == null){
+            Console.WriteLine("Tree associated with the commit not found.");
+            return;
+        }
+
+        ProjectService.DeleteAllFilesInDirectory(Directory.GetCurrentDirectory());
+        foreach (Blob blob in tree.Blobs)
+        {
+            string filePath = Path.Combine(Directory.GetCurrentDirectory(), blob.FilePath);
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+
+            string content = fs.LoadBlob(blob.Hash);
+            string? directoryPath = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(directoryPath))
+            {
+                Directory.CreateDirectory(directoryPath);
+            }
+            File.WriteAllBytes(filePath, Encoding.UTF8.GetBytes(content));
+        }
+
+        FindCommitsInObjects(false);
+
+        if(commits.OrderByDescending(c => c.Timestamp).FirstOrDefault()?.Hash == commitHash)
+        {
+            Console.WriteLine("Checked out the latest commit. HEAD is now detached.");
+            File.WriteAllText(headStatusPath, HeadStatus.attached.ToString());
+        } else
+        {
+            Console.WriteLine($"Checked out commit {commitHash}. HEAD is now detached.");
+            File.WriteAllText(headStatusPath, HeadStatus.detached.ToString());
+        }
+
+        File.WriteAllText(HeadFilePath, commitHash);
+    }
 }

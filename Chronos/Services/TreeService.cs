@@ -16,6 +16,9 @@ public class TreeService
             FileType = (FileStatusEnum)FileTypeEnum.Tree
         };
 
+        VersionService vs = new();
+        vs.GetVersionState(_fileService);
+
         BuildTreeRecursive(Directory.GetCurrentDirectory(), Directory.GetCurrentDirectory(), tree);
         
         tree.Hash = CalculateTreeHash(tree);
@@ -31,13 +34,17 @@ public class TreeService
             {
                 string relativePath = Path.GetRelativePath(rootPath, file.FullName);
                 string hash = _fileService.CalculateFileHash(file.FullName);
-                
-                tree.Blobs.Add(new Blob
+                FileStatusEnum? correspondence = _fileService.trackedFiles.Find(f => f.FilePath == file.FullName)?.Status;
+                if(correspondence == FileStatusEnum.added || correspondence == FileStatusEnum.commited)
                 {
-                    FilePath = relativePath,
-                    Hash = hash,
-                    Status = FileStatusEnum.untracked
-                });
+                    tree.Blobs.Add(new Blob
+                    {
+                        FilePath = relativePath,
+                        Hash = hash,
+                        Status = correspondence.Value
+                    });
+                }
+                
             }
 
             foreach (DirectoryInfo dir in dirInfo.GetDirectories())

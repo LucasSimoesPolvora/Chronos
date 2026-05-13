@@ -21,6 +21,8 @@ public class ProjectService
 
         dir.CreateSubdirectory("objects");
         File.Create(Path.Combine(projectPath, "HEAD")).Close();
+        File.Create(Path.Combine(projectPath, "status")).Close();
+        File.WriteAllText(Path.Combine(projectPath, "status"), HeadStatus.attached.ToString());
         Console.WriteLine("Project initialized successfully.");   
     }
 
@@ -28,5 +30,23 @@ public class ProjectService
     {
         string projectPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos");
         return Directory.Exists(projectPath);
+    }
+
+    public static void DeleteAllFilesInDirectory(string directoryPath)
+    {
+        foreach (string file in Directory.GetFiles(directoryPath))
+        {
+            File.Delete(file);
+        }
+
+        foreach (string dir in Directory.GetDirectories(directoryPath))
+        {
+            if(dir.Contains(".chronos"))
+            {
+                continue;
+            }
+            DeleteAllFilesInDirectory(dir);
+            Directory.Delete(dir);
+        }
     }
 }
