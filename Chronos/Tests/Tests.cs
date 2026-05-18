@@ -95,7 +95,7 @@ namespace Chronos.Tests
             ProjectService projectService = new();
 
             // ASSERT
-            Assert.True(projectService.isProjectInitialized());
+            Assert.True(ProjectService.IsProjectInitialized());
         }
     }
 
@@ -159,7 +159,7 @@ namespace Chronos.Tests
             File.WriteAllText(filepath, "modified content");
 
             // ACT
-            bool isModified = commitService.IsFileModified(filepath, originalHash);
+            bool isModified = CommitService.IsFileModified(filepath, originalHash);
 
             // ASSERT
             Assert.True(isModified, "File should be detected as modified");
@@ -181,7 +181,7 @@ namespace Chronos.Tests
             string hash = Convert.ToHexString(hashBytes).ToLower();
 
             // ACT
-            bool isModified = commitService.IsFileModified(filepath, hash);
+            bool isModified = CommitService.IsFileModified(filepath, hash);
 
             // ASSERT
             Assert.False(isModified, "File should not be detected as modified");

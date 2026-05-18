@@ -34,16 +34,14 @@ public class FileService
         }
     }
 
-    public string CalculateFileHash(string filePath)
+    public static string CalculateFileHash(string filePath)
     {
         try
         {
-            using (var sha256 = SHA256.Create())
-            using (var stream = File.OpenRead(filePath))
-            {
-                byte[] hashBytes = sha256.ComputeHash(stream);
-                return Convert.ToHexString(hashBytes).ToLower();
-            }
+            using var sha256 = SHA256.Create();
+            using var stream = File.OpenRead(filePath);
+            byte[] hashBytes = sha256.ComputeHash(stream);
+            return Convert.ToHexString(hashBytes).ToLower();
         }
         catch (UnauthorizedAccessException)
         {
@@ -75,15 +73,13 @@ public class FileService
 
     private static byte[] ToBinary(string content, FileTypeEnum type)
     {
-        using (var ms = new MemoryStream())
-        using (var writer = new BinaryWriter(ms))
-        {
-            writer.Write(VersionService.MAGIC_NUMBER);
-            writer.Write((byte)type);
-            writer.Write(content);
+        using var ms = new MemoryStream();
+        using var writer = new BinaryWriter(ms);
+        writer.Write(VersionService.MAGIC_NUMBER);
+        writer.Write((byte)type);
+        writer.Write(content);
 
-            return ms.ToArray();
-        }
+        return ms.ToArray();
     }
 
     public string LoadBlob(string treeHash)
@@ -97,19 +93,17 @@ public class FileService
 
     private static string FromBinary(byte[] data)
     {
-        using (var ms = new MemoryStream(data))
-        using (var reader = new BinaryReader(ms))
-        {
-            uint magic = reader.ReadUInt32();
-            if (magic != VersionService.MAGIC_NUMBER)
-                throw new InvalidDataException("Invalid blob format.");
+        using var ms = new MemoryStream(data);
+        using var reader = new BinaryReader(ms);
+        uint magic = reader.ReadUInt32();
+        if (magic != VersionService.MAGIC_NUMBER)
+            throw new InvalidDataException("Invalid blob format.");
 
-            FileTypeEnum type = (FileTypeEnum)reader.ReadByte();
-            if (type != FileTypeEnum.Blob)
-                throw new InvalidDataException("Data is not a blob.");
+        FileTypeEnum type = (FileTypeEnum)reader.ReadByte();
+        if (type != FileTypeEnum.Blob)
+            throw new InvalidDataException("Data is not a blob.");
 
-            return reader.ReadString();;
-        }
+        return reader.ReadString(); ;
     }
 
     public void AddToStaging(string pattern)
@@ -212,7 +206,7 @@ public class FileService
         }
     }
 
-    private bool IsMatch(string filename, string pattern)
+    private static bool IsMatch(string filename, string pattern)
     {
         if (pattern == "*")
             return true;

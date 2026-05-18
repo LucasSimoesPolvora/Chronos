@@ -25,14 +25,12 @@ public class CommitService
         return commit;
     }
 
-    private string CalculateCommitHash(Commit commit)
+    private static string CalculateCommitHash(Commit commit)
     {
-        using (var sha256 = SHA256.Create())
-        {
-            string commitContent = $"{commit.TreeHash}|{commit.Message}|{commit.Timestamp:O}";
-            byte[] hashBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(commitContent));
-            return Convert.ToHexString(hashBytes).ToLower();
-        }
+        using var sha256 = SHA256.Create();
+        string commitContent = $"{commit.TreeHash}|{commit.Message}|{commit.Timestamp:O}";
+        byte[] hashBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(commitContent));
+        return Convert.ToHexString(hashBytes).ToLower();
     }
 
     public string SaveCommit(Commit commit)
@@ -59,37 +57,33 @@ public class CommitService
         }
     }
 
-    private byte[] ToBinary(Commit commit)
+    private static byte[] ToBinary(Commit commit)
     {
-        using (var ms = new MemoryStream())
-        using (var writer = new BinaryWriter(ms))
-        {
-            writer.Write(MAGIC_NUMBER);
-            writer.Write((byte)commit.FileType);
-            
-            writer.Write(commit.Hash);
-            writer.Write(commit.Message);
-            writer.Write(commit.TreeHash);
-            writer.Write(commit.ParentHash ?? "");
-            writer.Write(commit.Timestamp.Ticks);
+        using var ms = new MemoryStream();
+        using var writer = new BinaryWriter(ms);
+        writer.Write(MAGIC_NUMBER);
+        writer.Write((byte)commit.FileType);
 
-            return ms.ToArray();
-        }
+        writer.Write(commit.Hash);
+        writer.Write(commit.Message);
+        writer.Write(commit.TreeHash);
+        writer.Write(commit.ParentHash ?? "");
+        writer.Write(commit.Timestamp.Ticks);
+
+        return ms.ToArray();
     }
 
-    public bool IsFileModified(string filePath, string indexBlobHash)
+    public static bool IsFileModified(string filePath, string indexBlobHash)
     {
         if (!File.Exists(filePath))
             return true;
 
-        using (var sha256 = SHA256.Create())
-        {
-            byte[] fileBytes = File.ReadAllBytes(filePath);
-            byte[] hashBytes = sha256.ComputeHash(fileBytes);
-            string currentHash = Convert.ToHexString(hashBytes).ToLower();
-            
-            return currentHash != indexBlobHash;
-        }
+        using var sha256 = SHA256.Create();
+        byte[] fileBytes = File.ReadAllBytes(filePath);
+        byte[] hashBytes = sha256.ComputeHash(fileBytes);
+        string currentHash = Convert.ToHexString(hashBytes).ToLower();
+
+        return currentHash != indexBlobHash;
     }
 
     public Commit LoadCommit(string commitHash)
@@ -102,37 +96,35 @@ public class CommitService
         return FromBinary(content);
     }
 
-    public Commit FromBinary(byte[] data)
+    public static Commit FromBinary(byte[] data)
     {
-        using (var ms = new MemoryStream(data))
-        using (var reader = new BinaryReader(ms))
+        using var ms = new MemoryStream(data);
+        using var reader = new BinaryReader(ms);
+        uint magic = reader.ReadUInt32();
+        if (magic != MAGIC_NUMBER)
+            throw new InvalidDataException("Invalid commit object.");
+
+        FileTypeEnum fileType = (FileTypeEnum)reader.ReadByte();
+        if (fileType != FileTypeEnum.Commit)
+            throw new InvalidDataException("Data is not a commit object.");
+
+        string hash = reader.ReadString();
+        string message = reader.ReadString();
+        string treeHash = reader.ReadString();
+        string parentHash = reader.ReadString();
+        long timestampTicks = reader.ReadInt64();
+
+        DateTime timestamp = new(timestampTicks, DateTimeKind.Utc);
+
+        return new Commit
         {
-            uint magic = reader.ReadUInt32();
-            if (magic != MAGIC_NUMBER)
-                throw new InvalidDataException("Invalid commit object.");
-
-            FileTypeEnum fileType = (FileTypeEnum)reader.ReadByte();
-            if (fileType != FileTypeEnum.Commit)
-                throw new InvalidDataException("Data is not a commit object.");
-
-            string hash = reader.ReadString();
-            string message = reader.ReadString();
-            string treeHash = reader.ReadString();
-            string parentHash = reader.ReadString();
-            long timestampTicks = reader.ReadInt64();
-            
-            DateTime timestamp = new(timestampTicks, DateTimeKind.Utc);
-
-            return new Commit
-            {
-                Hash = hash,
-                Message = message,
-                TreeHash = treeHash,
-                Timestamp = timestamp,
-                ParentHash = parentHash,
-                FileType = (FileStatusEnum)fileType
-            };
-        }
+            Hash = hash,
+            Message = message,
+            TreeHash = treeHash,
+            Timestamp = timestamp,
+            ParentHash = parentHash,
+            FileType = (FileStatusEnum)fileType
+        };
     }
 
 }

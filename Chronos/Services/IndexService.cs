@@ -12,7 +12,6 @@ public class IndexService
             {
                 string json = File.ReadAllText(IndexPath);
                 
-                // Check if file is empty
                 if (string.IsNullOrWhiteSpace(json))
                 {
                     index = new Index();
