@@ -26,7 +26,7 @@ public class ProjectService
         Console.WriteLine("Project initialized successfully.");   
     }
 
-    public bool isProjectInitialized()
+    public static bool IsProjectInitialized()
     {
         string projectPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos");
         return Directory.Exists(projectPath);

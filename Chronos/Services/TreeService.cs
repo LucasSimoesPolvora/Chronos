@@ -33,7 +33,7 @@ public class TreeService
             foreach (FileInfo file in dirInfo.GetFiles())
             {
                 string relativePath = Path.GetRelativePath(rootPath, file.FullName);
-                string hash = _fileService.CalculateFileHash(file.FullName);
+                string hash = FileService.CalculateFileHash(file.FullName);
                 FileStatusEnum? correspondence = _fileService.trackedFiles.Find(f => f.FilePath == file.FullName)?.Status;
                 if(correspondence == FileStatusEnum.added || correspondence == FileStatusEnum.commited)
                 {
@@ -63,14 +63,12 @@ public class TreeService
         }
     }
 
-    private string CalculateTreeHash(Tree tree)
+    private static string CalculateTreeHash(Tree tree)
     {
-        using (var sha256 = SHA256.Create())
-        {
-            var blobHashes = string.Join("|", tree.Blobs.Select(b => $"{b.FilePath}:{b.Hash}"));
-            byte[] hashBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(blobHashes));
-            return Convert.ToHexString(hashBytes).ToLower();
-        }
+        using var sha256 = SHA256.Create();
+        var blobHashes = string.Join("|", tree.Blobs.Select(b => $"{b.FilePath}:{b.Hash}"));
+        byte[] hashBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(blobHashes));
+        return Convert.ToHexString(hashBytes).ToLower();
     }
 
     public string SaveTree(Tree tree)
@@ -97,24 +95,22 @@ public class TreeService
         }
     }
 
-    private byte[] ToBinary(Tree tree)
+    private static byte[] ToBinary(Tree tree)
     {
-        using (var ms = new MemoryStream())
-        using (var writer = new BinaryWriter(ms))
+        using var ms = new MemoryStream();
+        using var writer = new BinaryWriter(ms);
+        writer.Write(VersionService.MAGIC_NUMBER);
+        writer.Write((byte)tree.FileType);
+        writer.Write(tree.Hash);
+        writer.Write(tree.Blobs.Count);
+
+        foreach (var blob in tree.Blobs)
         {
-            writer.Write(VersionService.MAGIC_NUMBER);
-            writer.Write((byte)tree.FileType);
-            writer.Write(tree.Hash);
-            writer.Write(tree.Blobs.Count);
-
-            foreach (var blob in tree.Blobs)
-            {
-                writer.Write(blob.FilePath);
-                writer.Write(blob.Hash);
-            }
-
-            return ms.ToArray();
+            writer.Write(blob.FilePath);
+            writer.Write(blob.Hash);
         }
+
+        return ms.ToArray();
     }
 
     public Tree LoadTree(string treeHash)
@@ -126,40 +122,38 @@ public class TreeService
         return FromBinary(content);
     }
 
-    private Tree FromBinary(byte[] data)
+    private static Tree FromBinary(byte[] data)
     {
-        using (var ms = new MemoryStream(data))
-        using (var reader = new BinaryReader(ms))
+        using MemoryStream ms = new(data);
+        using BinaryReader reader = new(ms);
+        uint magic = reader.ReadUInt32();
+        if (magic != VersionService.MAGIC_NUMBER)
+            throw new InvalidDataException("Invalid tree object.");
+
+        FileTypeEnum fileType = (FileTypeEnum)reader.ReadByte();
+        if (fileType != FileTypeEnum.Tree)
+            throw new InvalidDataException("Data is not a tree object.");
+
+        string hash = reader.ReadString();
+        int blobCount = reader.ReadInt32();
+        List<Blob> blobs = new();
+        for (int i = 0; i < blobCount; i++)
         {
-            uint magic = reader.ReadUInt32();
-            if (magic != VersionService.MAGIC_NUMBER)
-                throw new InvalidDataException("Invalid tree object.");
-
-            FileTypeEnum fileType = (FileTypeEnum)reader.ReadByte();
-            if (fileType != FileTypeEnum.Tree)
-                throw new InvalidDataException("Data is not a tree object.");
-
-            string hash = reader.ReadString();
-            int blobCount = reader.ReadInt32();
-            List<Blob> blobs = new();
-            for (int i = 0; i < blobCount; i++)
+            string filePath = reader.ReadString();
+            string blobHash = reader.ReadString();
+            blobs.Add(new Blob
             {
-                string filePath = reader.ReadString();
-                string blobHash = reader.ReadString();
-                blobs.Add(new Blob
-                {
-                    FilePath = filePath,
-                    Hash = blobHash,
-                    Status = FileStatusEnum.commited
-                });
-            }
-
-            return new Tree
-            {
-                Hash = hash,
-                Blobs = blobs,
-                FileType = (FileStatusEnum)FileTypeEnum.Tree
-            };
+                FilePath = filePath,
+                Hash = blobHash,
+                Status = FileStatusEnum.commited
+            });
         }
+
+        return new Tree
+        {
+            Hash = hash,
+            Blobs = blobs,
+            FileType = (FileStatusEnum)FileTypeEnum.Tree
+        };
     }
 }

@@ -1,3 +1,4 @@
+using System.Formats.Asn1;
 using System.Text;
 
 public class VersionService
@@ -68,11 +69,38 @@ public class VersionService
                 Console.WriteLine("Commit service not initialized.");
                 return;
             }
-            bool isModified = File.Exists(HeadFilePath) ? _commitService.IsFileModified(entry.RelativePath, entry.BlobHash) : false;
+
+            if(_indexService == null)
+            {
+                Console.WriteLine("Index service not initialized.");
+                return;
+            }
+
+            if(_treeService == null)
+            {
+                Console.WriteLine("Tree service not initialized.");
+                return;
+            }
+
+            bool wasThenDeleted = File.Exists(Path.Combine(Directory.GetCurrentDirectory(), entry.RelativePath)) == false;
+            bool isModified = File.Exists(HeadFilePath) ? CommitService.IsFileModified(entry.RelativePath, entry.BlobHash) : false;
             Blob? trackedFile = fs.trackedFiles.Find(f => Path.GetRelativePath(Directory.GetCurrentDirectory(), f.FilePath) == entry.RelativePath);
             if (trackedFile != null)
             {
-                if(isModified)
+                if(wasThenDeleted)
+                {
+                    if(!CommitService.CheckIfFileWasInLastCommit(entry.RelativePath, File.ReadAllText(HeadFilePath), _treeService))
+                    {
+                        _indexService.RemoveEntry(entry.RelativePath);
+                        _indexService.SaveIndex();
+                        fs.trackedFiles.Remove(trackedFile);
+                    } else
+                    {
+                        trackedFile.Status = FileStatusEnum.deleted;
+                    }
+                    
+                }
+                else if(isModified)
                 {
                     trackedFile.Status = FileStatusEnum.modified;
                 }
@@ -92,7 +120,7 @@ public class VersionService
         }
     }
 
-    public FileStatusEnum CheckIfStaged(IndexEntry entry)
+    public static FileStatusEnum CheckIfStaged(IndexEntry entry)
     {
         if (_commitService == null)
         {
@@ -234,15 +262,15 @@ public class VersionService
 
         foreach (string file in objectFiles)
         {
-            using var ms = new MemoryStream(File.ReadAllBytes(file));
-            using var reader = new BinaryReader(ms);
+            using MemoryStream ms = new(File.ReadAllBytes(file));
+            using BinaryReader reader = new(ms);
             uint magic = reader.ReadUInt32();
             if (magic != MAGIC_NUMBER)
                 throw new InvalidDataException("Invalid commit object.");
 
             FileTypeEnum fileType = (FileTypeEnum)reader.ReadByte();
             if (fileType == FileTypeEnum.Commit)
-                commits.Add(_commitService.FromBinary(File.ReadAllBytes(file)));
+                commits.Add(CommitService.FromBinary(File.ReadAllBytes(file)));
         }
 
         if (commits.Count == 0)

@@ -12,7 +12,6 @@ public class IndexService
             {
                 string json = File.ReadAllText(IndexPath);
                 
-                // Check if file is empty
                 if (string.IsNullOrWhiteSpace(json))
                 {
                     index = new Index();
@@ -51,6 +50,11 @@ public class IndexService
     public void AddOrUpdateEntry(string relativePath, string blobHash)
     {
         index.AddOrUpdateEntry(relativePath, blobHash);
+    }
+
+    public void RemoveEntry(string relativePath)
+    {
+        index.RemoveEntry(relativePath);
     }
 
     public void MarkEntryDeleted(string relativePath)
