@@ -127,4 +127,13 @@ public class CommitService
         };
     }
 
+    public static bool CheckIfFileWasInLastCommit(string filePath, string headCommitHash, TreeService treeService)
+    {
+        if (string.IsNullOrEmpty(headCommitHash))
+            return false;
+
+        Commit headCommit = new CommitService().LoadCommit(headCommitHash);
+        Tree tree = treeService.LoadTree(headCommit.TreeHash);
+        return tree.Blobs.Any(b => b.FilePath == filePath);
+    }
 }

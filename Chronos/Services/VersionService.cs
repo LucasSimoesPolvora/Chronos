@@ -1,3 +1,4 @@
+using System.Formats.Asn1;
 using System.Text;
 
 public class VersionService
@@ -68,11 +69,38 @@ public class VersionService
                 Console.WriteLine("Commit service not initialized.");
                 return;
             }
+
+            if(_indexService == null)
+            {
+                Console.WriteLine("Index service not initialized.");
+                return;
+            }
+
+            if(_treeService == null)
+            {
+                Console.WriteLine("Tree service not initialized.");
+                return;
+            }
+
+            bool wasThenDeleted = File.Exists(Path.Combine(Directory.GetCurrentDirectory(), entry.RelativePath)) == false;
             bool isModified = File.Exists(HeadFilePath) ? CommitService.IsFileModified(entry.RelativePath, entry.BlobHash) : false;
             Blob? trackedFile = fs.trackedFiles.Find(f => Path.GetRelativePath(Directory.GetCurrentDirectory(), f.FilePath) == entry.RelativePath);
             if (trackedFile != null)
             {
-                if(isModified)
+                if(wasThenDeleted)
+                {
+                    if(!CommitService.CheckIfFileWasInLastCommit(entry.RelativePath, File.ReadAllText(HeadFilePath), _treeService))
+                    {
+                        _indexService.RemoveEntry(entry.RelativePath);
+                        _indexService.SaveIndex();
+                        fs.trackedFiles.Remove(trackedFile);
+                    } else
+                    {
+                        trackedFile.Status = FileStatusEnum.deleted;
+                    }
+                    
+                }
+                else if(isModified)
                 {
                     trackedFile.Status = FileStatusEnum.modified;
                 }

@@ -52,6 +52,11 @@ public class IndexService
         index.AddOrUpdateEntry(relativePath, blobHash);
     }
 
+    public void RemoveEntry(string relativePath)
+    {
+        index.RemoveEntry(relativePath);
+    }
+
     public void MarkEntryDeleted(string relativePath)
     {
         index.MarkEntryDeleted(relativePath);

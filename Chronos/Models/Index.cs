@@ -68,4 +68,9 @@ public class Index
     {
         Entries.RemoveAll(e => e.Status == FileStatusEnum.deleted);
     }
+
+    public void RemoveEntry(string relativePath)
+    {
+        Entries.RemoveAll(e => e.RelativePath == relativePath);
+    }
 }
