@@ -8,7 +8,7 @@ public class VersionService
     private readonly static TreeService? _treeService;
     public const uint MAGIC_NUMBER = 0x4348524F;
     private readonly static string HeadFilePath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "HEAD");
-    private List<Commit> commits = [];
+    private static List<Commit> commits = [];
 
     static VersionService()
     {
@@ -57,6 +57,7 @@ public class VersionService
     {
         fs.GetFiles(Directory.GetCurrentDirectory(), fs);
         IndexEntry[]? entries = _indexService?.GetEntries();
+        string headCommitHash = File.Exists(HeadFilePath) ? File.ReadAllText(HeadFilePath) : string.Empty;
 
         if(entries == null)
         {
@@ -83,13 +84,13 @@ public class VersionService
             }
 
             bool wasThenDeleted = File.Exists(Path.Combine(Directory.GetCurrentDirectory(), entry.RelativePath)) == false;
-            bool isModified = File.Exists(HeadFilePath) ? CommitService.IsFileModified(entry.RelativePath, entry.BlobHash) : false;
+            bool isModified = !string.IsNullOrEmpty(headCommitHash) ? CommitService.IsFileModified(entry.RelativePath, entry.BlobHash) : false;
             Blob? trackedFile = fs.trackedFiles.Find(f => Path.GetRelativePath(Directory.GetCurrentDirectory(), f.FilePath) == entry.RelativePath);
             if (trackedFile != null)
             {
                 if(wasThenDeleted)
                 {
-                    if(!CommitService.CheckIfFileWasInLastCommit(entry.RelativePath, File.ReadAllText(HeadFilePath), _treeService))
+                    if(!CommitService.CheckIfFileWasInLastCommit(entry.RelativePath, headCommitHash, _treeService))
                     {
                         _indexService.RemoveEntry(entry.RelativePath);
                         _indexService.SaveIndex();
@@ -110,6 +111,13 @@ public class VersionService
                 }
             } else
             {
+                if (wasThenDeleted && !CommitService.CheckIfFileWasInLastCommit(entry.RelativePath, headCommitHash, _treeService))
+                {
+                    _indexService.RemoveEntry(entry.RelativePath);
+                    _indexService.SaveIndex();
+                    continue;
+                }
+
                 fs.trackedFiles.Add(new Blob
                 {
                     FilePath = Path.Combine(Directory.GetCurrentDirectory(), entry.RelativePath),
@@ -250,6 +258,7 @@ public class VersionService
             return;
         }
 
+        commits.Clear();
         string objectsPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "objects");
         if (!Directory.Exists(objectsPath))
         {
@@ -258,7 +267,7 @@ public class VersionService
         }
 
         string[] objectFiles = Directory.GetFiles(objectsPath, "*", SearchOption.AllDirectories);
-        List<Commit> commits = [];
+        List<Commit> foundCommits = [];
 
         foreach (string file in objectFiles)
         {
@@ -270,16 +279,16 @@ public class VersionService
 
             FileTypeEnum fileType = (FileTypeEnum)reader.ReadByte();
             if (fileType == FileTypeEnum.Commit)
-                commits.Add(CommitService.FromBinary(File.ReadAllBytes(file)));
+                foundCommits.Add(CommitService.FromBinary(File.ReadAllBytes(file)));
         }
 
-        if (commits.Count == 0)
+        if (foundCommits.Count == 0)
         {
             Console.WriteLine("No commits found in objects.");
             return;
         }
 
-        foreach (Commit commit in commits.OrderByDescending(c => c.Timestamp))
+        foreach (Commit commit in foundCommits.OrderByDescending(c => c.Timestamp))
         {
             if(display)
                 Console.WriteLine($"- {commit.Timestamp:yyyy-MM-dd HH:mm:ss} {commit.Message} ({commit.Hash})");
@@ -302,12 +311,24 @@ public class VersionService
         string headStatusPath = Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "status");
 
         string headStatus = File.ReadAllText(headStatusPath);
+        string currentHeadHash = File.Exists(HeadFilePath) ? File.ReadAllText(HeadFilePath) : string.Empty;
 
-        if(File.ReadAllText(HeadFilePath) == commitHash)
+        FindCommitsInObjects(false);
+        string latestCommitHash = commits.FirstOrDefault()?.Hash ?? string.Empty;
+
+        if (currentHeadHash == commitHash && headStatus == HeadStatus.attached.ToString())
         {
             Console.WriteLine("Already on the specified commit.");
             return;
         }
+
+        if (currentHeadHash == commitHash && latestCommitHash == commitHash && headStatus == HeadStatus.detached.ToString())
+        {
+            Console.WriteLine("Checked out the latest commit. HEAD is now attached.");
+            File.WriteAllText(headStatusPath, HeadStatus.attached.ToString());
+            return;
+        }
+
         if(headStatus == HeadStatus.attached.ToString())
         {
             if(fs.trackedFiles.Any(f => f.Status == FileStatusEnum.modified || f.Status == FileStatusEnum.added || f.Status == FileStatusEnum.deleted))
@@ -351,9 +372,9 @@ public class VersionService
 
         FindCommitsInObjects(false);
 
-        if(commits.OrderByDescending(c => c.Timestamp).FirstOrDefault()?.Hash == commitHash)
+        if(latestCommitHash == commitHash)
         {
-            Console.WriteLine("Checked out the latest commit. HEAD is now detached.");
+            Console.WriteLine("Checked out the latest commit. HEAD is now attached.");
             File.WriteAllText(headStatusPath, HeadStatus.attached.ToString());
         } else
         {
