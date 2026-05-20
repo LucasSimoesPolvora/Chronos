@@ -165,6 +165,9 @@ public class VersionService
             Console.WriteLine("No changes to display. All files are committed.");
             return;
         }
+        string headHash = File.Exists(HeadFilePath) ? File.ReadAllText(HeadFilePath) : string.Empty;
+
+        Console.WriteLine($"Current version state: {headHash}");
         foreach(Blob file in fs.trackedFiles.OrderBy(f => f.Status).ThenBy(f => f.FileName))
         {
             switch(file.Status)
