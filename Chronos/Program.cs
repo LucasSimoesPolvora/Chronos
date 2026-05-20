@@ -3,8 +3,6 @@ VersionService vs = new();
 bool isDetached = false;
 if(Path.Exists(Path.Combine(Directory.GetCurrentDirectory(), ".chronos")))
 {
-    fs.GetFiles(Directory.GetCurrentDirectory(), fs);
-    vs.GetVersionState(fs);
     string headStatus = File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), ".chronos", "status"));
     isDetached = headStatus == HeadStatus.detached.ToString();
 }
